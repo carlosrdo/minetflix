@@ -265,7 +265,10 @@ const keywordsView = (movieId, movieTitle, keywordList) => {
   } else {
     const items = keywordList.map(kw => `
       <li>
-        <span>${kw}</span>
+        <span class="keyword-link"
+              data-keyword="${encodeURIComponent(kw)}">
+          ${kw}
+        </span>
         <button class="add-keyword"
                 data-keyword="${encodeURIComponent(kw)}">
           agregar a mi lista
@@ -285,6 +288,10 @@ const keywordsView = (movieId, movieTitle, keywordList) => {
   return `
     <div class="container">
       <h2>Palabras clave de: ${title}</h2>
+      <div class="keywords-hint">
+        Pulsa sobre una palabra clave para buscar películas relacionadas,
+        o usa el botón "agregar a mi lista" para guardarla.
+      </div>
       ${content}
       <div class="actions">
         <button class="my-keywords">mis palabras clave</button>
@@ -414,7 +421,7 @@ const resetContr = async () => {
   indexContr();
 };
 
-/************  CONTROLADORES TMDb (búsqueda + añadir)  ************/
+/************  CONTROLADORES TMDb (búsqueda + añadir título)  ************/
 
 // Muestra solo la vista de búsqueda (sin resultados)
 const searchViewContr = () => {
@@ -424,7 +431,7 @@ const searchViewContr = () => {
   document.getElementById('search_query')?.focus();
 };
 
-// Ejecuta la búsqueda en TMDb usando el término del usuario
+// Ejecuta la búsqueda en TMDb usando el término del usuario (por título)
 const searchContr = async (query) => {
   const q = (query || '').trim();
   if (!q) {
@@ -616,6 +623,71 @@ const deleteKeywordContr = (keyword) => {
   document.getElementById('main').innerHTML = myKeywordsView(list);
 };
 
+/************  NUEVO: buscar películas por keyword  ************/
+
+const searchByKeywordContr = async (keyword) => {
+  const kw = cleanKeyword(keyword);
+  if (!kw) {
+    alert('Palabra clave no válida.');
+    return;
+  }
+
+  try {
+    // 1) Buscar el ID de la keyword
+    const urlKw = 'https://api.themoviedb.org/3/search/keyword?query='
+      + encodeURIComponent(kw)
+      + '&page=1';
+    const resKw = await fetch(urlKw, TMDB_OPTIONS);
+    if (!resKw.ok) throw new Error('Error HTTP ' + resKw.status);
+    const dataKw = await resKw.json();
+
+    if (!dataKw.results || dataKw.results.length === 0) {
+      document.getElementById('main').innerHTML = `
+        <div class="container">
+          <h2>Resultados por palabra clave</h2>
+          <div class="keywords-empty">
+            No se han encontrado keywords en TMDb para "${kw}".
+          </div>
+          <div class="actions">
+            <button class="index">volver al inicio</button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const keywordId = dataKw.results[0].id;
+
+    // 2) Buscar películas que tengan esa keyword
+    const urlMovies = 'https://api.themoviedb.org/3/discover/movie'
+      + '?include_adult=false&language=es-ES&page=1&with_keywords='
+      + keywordId;
+
+    const resMovies = await fetch(urlMovies, TMDB_OPTIONS);
+    if (!resMovies.ok) throw new Error('Error HTTP ' + resMovies.status);
+    const dataMovies = await resMovies.json();
+
+    tmdb_last_results = Array.isArray(dataMovies.results) ? dataMovies.results : [];
+    tmdb_last_query = `keyword: ${kw}`;
+
+    document.getElementById('main').innerHTML =
+      resultsView(tmdb_last_results, `keyword: ${kw}`);
+  } catch (err) {
+    console.error(err);
+    document.getElementById('main').innerHTML = `
+      <div class="container">
+        <h2>Resultados por palabra clave</h2>
+        <div class="error">
+          No se han podido obtener películas para la keyword "${keyword}".
+        </div>
+        <div class="actions">
+          <button class="index">volver al inicio</button>
+        </div>
+      </div>
+    `;
+  }
+};
+
 /************  ROUTER (delegación de eventos)  ************/
 const matchEvent = (ev, sel) => ev.target.matches(sel);
 const myId = (ev) => Number(ev.target.dataset.myId);
@@ -630,7 +702,7 @@ document.addEventListener('click', ev => {
   else if (matchEvent(ev, '.delete'))       deleteContr(myId(ev));
   else if (matchEvent(ev, '.reset'))        resetContr();
 
-  // Búsqueda TMDb
+  // Búsqueda TMDb por título
   else if (matchEvent(ev, '.search-view'))  searchViewContr();
   else if (matchEvent(ev, '.search')) {
     const query = document.getElementById('search_query')?.value || '';
@@ -660,6 +732,11 @@ document.addEventListener('click', ev => {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     deleteKeywordContr(kw);
   }
+  // NUEVO: click en el texto de la keyword -> buscar pelis con esa keyword
+  else if (matchEvent(ev, '.keyword-link')) {
+    const kw = decodeURIComponent(ev.target.dataset.keyword || '');
+    searchByKeywordContr(kw);
+  }
 });
 
 // Buscar al pulsar Enter en el input de búsqueda
@@ -672,6 +749,7 @@ document.addEventListener('keyup', ev => {
 
 /************  Inicialización  ************/
 document.addEventListener('DOMContentLoaded', initContr);
+
 
 
 

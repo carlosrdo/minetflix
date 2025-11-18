@@ -66,7 +66,6 @@ div#main { padding: 14px; }
 }
 
 /* ==== Carátulas a tamaño uniforme ==== */
-/* Proporción póster 2:3 con recorte elegante */
 .movie .movie-img {
   width: 100%;
   aspect-ratio: 2 / 3;
@@ -81,7 +80,6 @@ div#main { padding: 14px; }
   object-fit: cover;
   object-position: center;
 }
-/* Fallback si el navegador no soporta aspect-ratio */
 @supports not (aspect-ratio: 1) {
   .movie .movie-img { height: 360px; }
 }
@@ -181,6 +179,15 @@ div#main { padding: 14px; }
   flex: 1;
 }
 
+/* texto de la keyword clicable */
+.keyword-link {
+  cursor: pointer;
+  color: var(--primary);
+}
+.keyword-link:hover {
+  text-decoration: underline;
+}
+
 .keywords-empty {
   margin-top: 10px;
   padding: 10px;
@@ -190,4 +197,11 @@ div#main { padding: 14px; }
   color: #555;
   background: #fafafa;
 }
+
+.keywords-hint {
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 6px;
+}
+
 
