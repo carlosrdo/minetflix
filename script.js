@@ -1,5 +1,6 @@
 /************  MODELO (datos + persistencia)  ************/
 const STORAGE_KEY = 'mis_peliculas';
+const KEYWORDS_STORAGE_KEY = 'mis_keywords';
 
 const mis_peliculas_iniciales = [
   { titulo: "Superlópez",    director: "Javier Ruiz Caldera",  miniatura: "files/superlopez.png" },
@@ -14,7 +15,7 @@ const postAPI = async (_peliculas) => { setMovies(_peliculas); return 'localStor
 const getAPI = async () => getMovies();
 const updateAPI = async (peliculas) => setMovies(peliculas);
 
-// CRUD almacenamiento
+// CRUD almacenamiento películas
 function getMovies() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -26,13 +27,27 @@ function getMovies() {
 function setMovies(arr) { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
 function seedMovies() { setMovies(mis_peliculas_iniciales.slice()); }
 
-/************  CONFIG TMDb (2ª PARTE)  ************/
+// CRUD almacenamiento lista de palabras clave personal
+function getStoredKeywords() {
+  try {
+    const raw = localStorage.getItem(KEYWORDS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+function setStoredKeywords(arr) {
+  localStorage.setItem(KEYWORDS_STORAGE_KEY, JSON.stringify(arr));
+}
+
+/************  CONFIG TMDb (2ª y 3ª PARTE)  ************/
 /*
- 
+ * IMPORTANTE:
+ * TMDB_BEARER_TOKEN es tu token de acceso de lectura (v4) de TMDb.
+ * En un proyecto real, NO debería estar visible en el front.
  */
 const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmNDNlOGI3ODc2YTQ1N2NkZDU5YTgwNjZhNmNmNDlmMiIsIm5iZiI6MTc2Mjg3OTM3MS42MDksInN1YiI6IjY5MTM2NzhiZThkMjQxZTdiNWMwNjg2ZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.owzzjV_WW9StabJ9qi-Ow4Smx1EEYS3wHd8meAN876w';
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w500';
-
 
 const TMDB_OPTIONS = {
   method: 'GET',
@@ -42,27 +57,46 @@ const TMDB_OPTIONS = {
   }
 };
 
-// Guardamos últimos resultados para poder usar data-my-id en botones "Añadir"
+// Guardamos últimos resultados de búsqueda TMDb
 let tmdb_last_results = [];
 let tmdb_last_query = "";
 
+/************  UTILIDADES TEXTO / REGEX (3ª PARTE)  ************/
+const cleanKeyword = (keyword) => {
+  return (keyword || '')
+    .replace(/[^a-zñáéíóú0-9 ]+/igm, "") // quitar caracteres especiales
+    .trim()
+    .toLowerCase();
+};
+
 /************  VISTAS  ************/
 const indexView = (peliculas) => {
-  let cards = peliculas.map((p, i) => `
-    <div class="movie">
-      <div class="movie-img">
-        <img class="show" data-my-id="${i}"
-             src="${p.miniatura || 'files/placeholder.png'}"
-             onerror="this.src='files/placeholder.png'">
+  let cards = peliculas.map((p, i) => {
+    const keywordBtn = p.tmdbId
+      ? `<button class="keywords"
+                 data-movie-id="${p.tmdbId}"
+                 data-movie-title="${encodeURIComponent(p.titulo || '')}">
+             keywords
+         </button>`
+      : '';
+
+    return `
+      <div class="movie">
+        <div class="movie-img">
+          <img class="show" data-my-id="${i}"
+               src="${p.miniatura || 'files/placeholder.png'}"
+               onerror="this.src='files/placeholder.png'">
+        </div>
+        <div class="title">${p.titulo || "<em>Sin título</em>"}</div>
+        <div class="actions">
+          <button class="show"   data-my-id="${i}">ver</button>
+          <button class="edit"   data-my-id="${i}">editar</button>
+          <button class="delete" data-my-id="${i}">borrar</button>
+          ${keywordBtn}
+        </div>
       </div>
-      <div class="title">${p.titulo || "<em>Sin título</em>"}</div>
-      <div class="actions">
-        <button class="show"   data-my-id="${i}">ver</button>
-        <button class="edit"   data-my-id="${i}">editar</button>
-        <button class="delete" data-my-id="${i}">borrar</button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   return `
     <div class="container">
@@ -73,6 +107,7 @@ const indexView = (peliculas) => {
       <div class="actions">
         <button class="new">añadir</button>
         <button class="search-view">buscar en TMDb</button>
+        <button class="my-keywords">mis palabras clave</button>
         <button class="reset">reset</button>
       </div>
     </div>`;
@@ -179,6 +214,8 @@ const resultsView = (resultados, query) => {
       ? (r.overview.length > 220 ? r.overview.slice(0, 220) + '…' : r.overview)
       : 'Sin sinopsis disponible.';
 
+    const safeTitle = encodeURIComponent(r.title || '');
+
     return `
       <div class="movie">
         <div class="movie-img">
@@ -189,6 +226,11 @@ const resultsView = (resultados, query) => {
         <p class="overview">${overview}</p>
         <div class="actions">
           <button class="add-from-api" data-my-id="${i}">añadir</button>
+          <button class="keywords"
+                  data-movie-id="${r.id}"
+                  data-movie-title="${safeTitle}">
+            keywords
+          </button>
         </div>
       </div>
     `;
@@ -211,7 +253,91 @@ const resultsView = (resultados, query) => {
   `;
 };
 
-/************  CONTROLADORES  ************/
+/************  VISTA PALABRAS CLAVE (3ª PARTE)  ************/
+const keywordsView = (movieId, movieTitle, keywordList) => {
+  const title = movieTitle || `ID ${movieId}`;
+
+  let content;
+  if (!keywordList || keywordList.length === 0) {
+    content = `<div class="keywords-empty">
+                 No se han encontrado palabras clave para esta película.
+               </div>`;
+  } else {
+    const items = keywordList.map(kw => `
+      <li>
+        <span>${kw}</span>
+        <button class="add-keyword"
+                data-keyword="${encodeURIComponent(kw)}">
+          agregar a mi lista
+        </button>
+      </li>
+    `).join('');
+
+    content = `
+      <div class="keywords-list">
+        <ul>
+          ${items}
+        </ul>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="container">
+      <h2>Palabras clave de: ${title}</h2>
+      ${content}
+      <div class="actions">
+        <button class="my-keywords">mis palabras clave</button>
+        <button class="index">volver al inicio</button>
+      </div>
+    </div>
+  `;
+};
+
+/************  VISTA LISTA PERSONAL DE PALABRAS CLAVE  ************/
+const myKeywordsView = (keywords) => {
+  let content;
+
+  if (!keywords || keywords.length === 0) {
+    content = `
+      <div class="keywords-empty">
+        Aún no has añadido ninguna palabra clave.<br>
+        Ve a las <strong>keywords</strong> de una película y pulsa
+        "agregar a mi lista".
+      </div>
+    `;
+  } else {
+    const items = keywords.map(kw => `
+      <li>
+        <span>${kw}</span>
+        <button class="delete-keyword"
+                data-keyword="${encodeURIComponent(kw)}">
+          eliminar
+        </button>
+      </li>
+    `).join('');
+
+    content = `
+      <div class="keywords-list">
+        <ul>
+          ${items}
+        </ul>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="container">
+      <h2>Mis palabras clave</h2>
+      ${content}
+      <div class="actions">
+        <button class="index">volver al inicio</button>
+      </div>
+    </div>
+  `;
+};
+
+/************  CONTROLADORES BÁSICOS  ************/
 const initContr = async () => {
   if (!getMovies()) await postAPI(mis_peliculas_iniciales); // siembra inicial
   indexContr();
@@ -288,7 +414,7 @@ const resetContr = async () => {
   indexContr();
 };
 
-/************  CONTROLADORES TMDb  ************/
+/************  CONTROLADORES TMDb (búsqueda + añadir)  ************/
 
 // Muestra solo la vista de búsqueda (sin resultados)
 const searchViewContr = () => {
@@ -376,7 +502,8 @@ const addFromAPIContr = async (i, btn) => {
   const nueva = {
     titulo,
     director: 'Desconocido (TMDb)',
-    miniatura
+    miniatura,
+    tmdbId: peliAPI.id
   };
 
   actual.push(nueva);
@@ -387,6 +514,106 @@ const addFromAPIContr = async (i, btn) => {
   }
 
   alert(`"${titulo}" se ha añadido a tus películas.`);
+};
+
+/************  CONTROLADORES PALABRAS CLAVE (3ª PARTE)  ************/
+
+// Procesa el array de objetos {id, name} de TMDb y devuelve lista de strings limpias
+const processKeywords = (keywords) => {
+  const result = [];
+  const seen = new Set();
+
+  if (!Array.isArray(keywords)) return result;
+
+  for (const k of keywords) {
+    const name = k && k.name ? k.name : '';
+    const cleaned = cleanKeyword(name);
+    if (!cleaned) continue;
+    if (seen.has(cleaned)) continue;
+    seen.add(cleaned);
+    result.push(cleaned);
+  }
+
+  // Orden alfabético
+  result.sort((a, b) => a.localeCompare(b));
+  return result;
+};
+
+// Controlador que llama a TMDb para obtener keywords de una película
+const keywordsContr = async (movieId, encodedTitle) => {
+  if (!movieId) {
+    alert('No se ha encontrado el ID de la película.');
+    return;
+  }
+
+  const movieTitle = encodedTitle
+    ? decodeURIComponent(encodedTitle)
+    : '';
+
+  try {
+    const url = `https://api.themoviedb.org/3/movie/${movieId}/keywords`;
+    const res = await fetch(url, TMDB_OPTIONS);
+    if (!res.ok) {
+      throw new Error('Error HTTP ' + res.status);
+    }
+
+    const data = await res.json();
+    const lista = processKeywords(data.keywords || []);
+
+    document.getElementById('main').innerHTML =
+      keywordsView(movieId, movieTitle, lista);
+  } catch (err) {
+    console.error(err);
+    document.getElementById('main').innerHTML = `
+      <div class="container">
+        <h2>Palabras clave</h2>
+        <div class="error">
+          No se han podido obtener las palabras clave de la película.
+          Inténtalo de nuevo más tarde.
+        </div>
+        <div class="actions">
+          <button class="index">volver al inicio</button>
+        </div>
+      </div>
+    `;
+  }
+};
+
+// Añade una palabra clave a la lista personalizada en localStorage
+const addKeywordToList = (keyword) => {
+  const cleaned = cleanKeyword(keyword);
+  if (!cleaned) {
+    alert('Palabra clave no válida.');
+    return;
+  }
+
+  const list = getStoredKeywords();
+  if (list.includes(cleaned)) {
+    alert('Esa palabra clave ya está en tu lista.');
+    return;
+  }
+
+  list.push(cleaned);
+  list.sort((a, b) => a.localeCompare(b));
+  setStoredKeywords(list);
+  alert(`"${cleaned}" se ha añadido a tu lista de palabras clave.`);
+};
+
+// Muestra la vista con la lista personalizada
+const myKeywordsContr = () => {
+  const list = getStoredKeywords();
+  document.getElementById('main').innerHTML = myKeywordsView(list);
+};
+
+// Elimina una palabra clave de la lista personalizada
+const deleteKeywordContr = (keyword) => {
+  const cleaned = cleanKeyword(keyword);
+  if (!cleaned) return;
+
+  let list = getStoredKeywords();
+  list = list.filter(k => k !== cleaned);
+  setStoredKeywords(list);
+  document.getElementById('main').innerHTML = myKeywordsView(list);
 };
 
 /************  ROUTER (delegación de eventos)  ************/
@@ -403,7 +630,7 @@ document.addEventListener('click', ev => {
   else if (matchEvent(ev, '.delete'))       deleteContr(myId(ev));
   else if (matchEvent(ev, '.reset'))        resetContr();
 
-  // 2ª parte: vistas y acciones de búsqueda TMDb
+  // Búsqueda TMDb
   else if (matchEvent(ev, '.search-view'))  searchViewContr();
   else if (matchEvent(ev, '.search')) {
     const query = document.getElementById('search_query')?.value || '';
@@ -414,6 +641,24 @@ document.addEventListener('click', ev => {
     btn.disabled = true;
     btn.textContent = 'añadiendo...';
     addFromAPIContr(myId(ev), btn);
+  }
+
+  // Palabras clave TMDb (3ª parte)
+  else if (matchEvent(ev, '.keywords')) {
+    const movieId = Number(ev.target.dataset.movieId);
+    const encodedTitle = ev.target.dataset.movieTitle || '';
+    keywordsContr(movieId, encodedTitle);
+  }
+  else if (matchEvent(ev, '.add-keyword')) {
+    const kw = decodeURIComponent(ev.target.dataset.keyword || '');
+    addKeywordToList(kw);
+  }
+  else if (matchEvent(ev, '.my-keywords')) {
+    myKeywordsContr();
+  }
+  else if (matchEvent(ev, '.delete-keyword')) {
+    const kw = decodeURIComponent(ev.target.dataset.keyword || '');
+    deleteKeywordContr(kw);
   }
 });
 
@@ -427,5 +672,6 @@ document.addEventListener('keyup', ev => {
 
 /************  Inicialización  ************/
 document.addEventListener('DOMContentLoaded', initContr);
+
 
 
