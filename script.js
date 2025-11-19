@@ -543,11 +543,14 @@ const deleteContr = async (i) => {
 };
 
 const resetContr = async () => {
-  const ok = confirm('Esto restaurará las películas iniciales. ¿Continuar?');
+  const ok = confirm('Esto borrará todas tus películas. ¿Continuar?');
   if (!ok) return;
-  seedMovies();
-  indexContr();
+
+  localStorage.removeItem(STORAGE_KEY); // elimina TODAS las películas guardadas
+  mis_peliculas = [];                    // deja vacío el array en memoria
+  indexContr();                           // repinta la vista sin películas
 };
+
 
 /************  CONTROLADORES TMDb (búsqueda + añadir título)  ************/
 
