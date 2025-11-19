@@ -2,11 +2,8 @@
 const STORAGE_KEY = 'mis_peliculas';
 const KEYWORDS_STORAGE_KEY = 'mis_keywords';
 
-const mis_peliculas_iniciales = [
-  { titulo: "Superlópez",    director: "Javier Ruiz Caldera",  miniatura: "files/superlopez.png" },
-  { titulo: "Jurassic Park", director: "Steven Spielberg",      miniatura: "files/jurassicpark.png" },
-  { titulo: "Interstellar",  director: "Christopher Nolan",     miniatura: "files/interstellar.png" }
-];
+const mis_peliculas_iniciales = [];
+
 
 let mis_peliculas = [];
 
@@ -97,7 +94,13 @@ const keywordsChipsBlock = () => {
 
 /************  VISTAS  ************/
 const indexView = (peliculas, localQuery = '') => {
-  let cards = peliculas.map((p, i) => {
+  let cards = peliculas.map((p) => {
+    // índice real de la película dentro del array global mis_peliculas
+    const idx = mis_peliculas.indexOf(p);
+
+    // por seguridad, si no se encontrara, no pintamos la tarjeta
+    if (idx === -1) return '';
+
     const keywordBtn = p.tmdbId
       ? `<button class="keywords"
                  data-movie-id="${p.tmdbId}"
@@ -109,15 +112,15 @@ const indexView = (peliculas, localQuery = '') => {
     return `
       <div class="movie">
         <div class="movie-img">
-          <img class="show" data-my-id="${i}"
+          <img class="show" data-my-id="${idx}"
                src="${p.miniatura || 'files/placeholder.png'}"
                onerror="this.src='files/placeholder.png'">
         </div>
         <div class="title">${p.titulo || "<em>Sin título</em>"}</div>
         <div class="actions">
-          <button class="show"   data-my-id="${i}">ver</button>
-          <button class="edit"   data-my-id="${i}">editar</button>
-          <button class="delete" data-my-id="${i}">borrar</button>
+          <button class="show"   data-my-id="${idx}">ver</button>
+          <button class="edit"   data-my-id="${idx}">editar</button>
+          <button class="delete" data-my-id="${idx}">borrar</button>
           ${keywordBtn}
         </div>
       </div>
@@ -151,6 +154,7 @@ const indexView = (peliculas, localQuery = '') => {
       </div>
     </div>`;
 };
+
 
 const editView = (i, pelicula) => `
   <div class="container">
