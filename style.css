@@ -54,13 +54,13 @@ div#main { padding: 14px; }
   grid-template-columns: repeat(auto-fit, minmax(220px, 260px));
   gap: 18px;
   align-items: start;
-  justify-content: center;     /* que las tarjetas queden centradas */
+  justify-content: center;
 }
 
 /* Tarjeta de película */
 .movie {
   width: 100%;
-  max-width: 260px;            /* límite de ancho para que no se estire demasiado */
+  max-width: 260px;
   margin: 0 auto;
   padding: 10px;
   box-shadow: 2px 2px 7px #ccc;
@@ -70,7 +70,7 @@ div#main { padding: 14px; }
 
 /* Tarjeta usada en la vista "ver" (detalle) */
 .movie-detail {
-  max-width: 420px;            /* un poco más grande que las demás */
+  max-width: 420px;
 }
 
 /* ==== Carátulas a tamaño uniforme ==== */
@@ -138,7 +138,7 @@ div#main { padding: 14px; }
   color: #666;
 }
 
-/* Campos extra en tarjetas TMDb */
+/* Info extra en tarjetas TMDb */
 .extra {
   font-size: 11px;
   color: #888;
@@ -211,6 +211,7 @@ div#main { padding: 14px; }
   color: #777;
   margin-bottom: 6px;
 }
+
 
 
 

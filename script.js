@@ -128,7 +128,7 @@ const editView = (i, pelicula) => `
   </div>
 `;
 
-/* ⬇⬇⬇ AQUÍ cambio: añado clase movie-detail para controlar el tamaño ⬇⬇⬇ */
+// Vista detalle con tamaño contenido
 const showView = (pelicula) => `
   <div class="container">
     <h2>${pelicula.titulo || "Sin título"}</h2>
@@ -145,7 +145,6 @@ const showView = (pelicula) => `
     </div>
   </div>
 `;
-/* ⬆⬆⬆ FIN cambio showView ⬆⬆⬆ */
 
 const newView = () => `
   <div class="container">
@@ -313,7 +312,10 @@ const myKeywordsView = (keywords) => {
   } else {
     const items = keywords.map(kw => `
       <li>
-        <span>${kw}</span>
+        <span class="keyword-link"
+              data-keyword="${encodeURIComponent(kw)}">
+          ${kw}
+        </span>
         <button class="delete-keyword"
                 data-keyword="${encodeURIComponent(kw)}">
           eliminar
@@ -522,7 +524,7 @@ const addFromAPIContr = async (i, btn) => {
 
 /************  CONTROLADORES PALABRAS CLAVE (3ª PARTE)  ************/
 
-// Procesa el array de objetos {id, name} de TMDb y devuelve lista de strings limpias
+// Procesa array {id, name} y devuelve lista de strings limpias
 const processKeywords = (keywords) => {
   const result = [];
   const seen = new Set();
@@ -538,12 +540,11 @@ const processKeywords = (keywords) => {
     result.push(cleaned);
   }
 
-  // Orden alfabético
   result.sort((a, b) => a.localeCompare(b));
   return result;
 };
 
-// Controlador que llama a TMDb para obtener keywords de una película
+// Controlador que obtiene keywords de una película
 const keywordsContr = async (movieId, encodedTitle) => {
   if (!movieId) {
     alert('No se ha encontrado el ID de la película.');
@@ -583,7 +584,7 @@ const keywordsContr = async (movieId, encodedTitle) => {
   }
 };
 
-// Añade una palabra clave a la lista personalizada en localStorage
+// Añade una palabra clave a la lista personalizada
 const addKeywordToList = (keyword) => {
   const cleaned = cleanKeyword(keyword);
   if (!cleaned) {
@@ -603,13 +604,13 @@ const addKeywordToList = (keyword) => {
   alert(`"${cleaned}" se ha añadido a tu lista de palabras clave.`);
 };
 
-// Muestra la vista con la lista personalizada
+// Muestra vista con lista personalizada
 const myKeywordsContr = () => {
   const list = getStoredKeywords();
   document.getElementById('main').innerHTML = myKeywordsView(list);
 };
 
-// Elimina una palabra clave de la lista personalizada
+// Elimina palabra clave de la lista personalizada
 const deleteKeywordContr = (keyword) => {
   const cleaned = cleanKeyword(keyword);
   if (!cleaned) return;
@@ -620,8 +621,7 @@ const deleteKeywordContr = (keyword) => {
   document.getElementById('main').innerHTML = myKeywordsView(list);
 };
 
-/************  NUEVO: buscar películas por keyword  ************/
-
+/************  Buscar películas por keyword  ************/
 const searchByKeywordContr = async (keyword) => {
   const kw = cleanKeyword(keyword);
   if (!kw) {
@@ -630,7 +630,7 @@ const searchByKeywordContr = async (keyword) => {
   }
 
   try {
-    // 1) Buscar el ID de la keyword
+    // 1) Buscar ID de la keyword
     const urlKw = 'https://api.themoviedb.org/3/search/keyword?query='
       + encodeURIComponent(kw)
       + '&page=1';
@@ -655,7 +655,7 @@ const searchByKeywordContr = async (keyword) => {
 
     const keywordId = dataKw.results[0].id;
 
-    // 2) Buscar películas que tengan esa keyword
+    // 2) Buscar películas con esa keyword
     const urlMovies = 'https://api.themoviedb.org/3/discover/movie'
       + '?include_adult=false&language=es-ES&page=1&with_keywords='
       + keywordId;
@@ -712,7 +712,7 @@ document.addEventListener('click', ev => {
     addFromAPIContr(myId(ev), btn);
   }
 
-  // Palabras clave TMDb (3ª parte)
+  // Palabras clave TMDb
   else if (matchEvent(ev, '.keywords')) {
     const movieId = Number(ev.target.dataset.movieId);
     const encodedTitle = ev.target.dataset.movieTitle || '';
@@ -729,7 +729,7 @@ document.addEventListener('click', ev => {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     deleteKeywordContr(kw);
   }
-  // click en el texto de la keyword -> buscar pelis con esa keyword
+  // Clic en cualquier texto de keyword (vista de peli o lista personal)
   else if (matchEvent(ev, '.keyword-link')) {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     searchByKeywordContr(kw);
@@ -746,6 +746,7 @@ document.addEventListener('keyup', ev => {
 
 /************  Inicialización  ************/
 document.addEventListener('DOMContentLoaded', initContr);
+
 
 
 
