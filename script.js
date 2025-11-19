@@ -41,7 +41,7 @@ function setStoredKeywords(arr) {
 }
 
 /************  CONFIG TMDb (2ª y 3ª PARTE)  ************/
-const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmNDNlOGI3ODc2YTQ1N2NkZDU5YTgwNjZhNmNmNDlmMiIsIm5iZiI6MTc2Mjg3OTM3MS42MDksInN1YiI6IjY5MTM2NzhiZThkMjQxZTdiNWMwNjg2ZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.owzzjV_W9StabJ9qi-Ow4Smx1EEYS3wHd8meAN876w';
+const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmNDNlOGI3ODc2YTQ1N2NkZDU5YTgwNjZhNmNmNDlmMiIsIm5iZiI6MTc2Mjg3OTM3MS42MDksInN1YiI6IjY5MTM2NzhiZThkMjQxZTdiNWMwNjg2ZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.owzzjV_WW9StabJ9qi-Ow4Smx1EEYS3wHd8meAN876w';
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w500';
 
 const TMDB_OPTIONS = {
@@ -566,13 +566,18 @@ const searchByTitleContr = async (query) => {
   tmdb_last_query = q;
 
   try {
-    const url = 'https://api.themoviedb.org/3/search/movie'
-      + '?include_adult=false&language=es-ES&page=1&query='
+    // MISMA URL SENCILLA QUE TENÍAS CUANDO FUNCIONABA
+    const url = 'https://api.themoviedb.org/3/search/movie?query='
       + encodeURIComponent(q);
 
     const res = await fetch(url, TMDB_OPTIONS);
+
+    // Si TMDb responde con error, lo mostramos en consola pero no “rompemos” nada más
     if (!res.ok) {
-      throw new Error('Error HTTP ' + res.status);
+      const text = await res.text().catch(() => '');
+      console.error('TMDb error search/movie:', res.status, text);
+      alert('TMDb ha devuelto un error (' + res.status + '). Revisa tu clave o vuelve a intentarlo en un rato.');
+      return;
     }
 
     const data = await res.json();
@@ -584,7 +589,7 @@ const searchByTitleContr = async (query) => {
 
     document.getElementById('search_query')?.focus();
   } catch (err) {
-    console.error(err);
+    console.error('Error de red al conectar con TMDb:', err);
     document.getElementById('main').innerHTML = `
       <div class="container">
         <h2>Buscar películas en TMDb</h2>
@@ -606,13 +611,13 @@ const searchByTitleContr = async (query) => {
           <button class="index">volver</button>
         </div>
         <div class="error">
-          Ha ocurrido un error al conectar con TMDb.
-          Comprueba tu conexión o tu clave de API.
+          Ha ocurrido un error de conexión con TMDb (red/CORS).
         </div>
       </div>
     `;
   }
 };
+
 
 // Añade película seleccionada desde los resultados TMDb al modelo local
 const addFromAPIContr = async (i, btn) => {
