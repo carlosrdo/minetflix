@@ -41,7 +41,7 @@ function setStoredKeywords(arr) {
 }
 
 /************  CONFIG TMDb (2ª y 3ª PARTE)  ************/
-const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmNDNlOGI3ODc2YTQ1N2NkZDU5YTgwNjZhNmNmNDlmMiIsIm5iZiI6MTc2Mjg3OTM3MS42MDksInN1YiI6IjY5MTM2NzhiZThkMjQxZTdiNWMwNjg2ZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.owzzjV_WW9StabJ9qi-Ow4Smx1EEYS3wHd8meAN876w';
+const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmNDNlOGI3ODc2YTQ1N2NkZDU5YTgwNjZhNmNmNDlmMiIsIm5iZiI6MTc2Mjg3OTM3MS42MDksInN1YiI6IjY5MTM2NzhiZThkMjQxZTdiNWMwNjg2ZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.owzzjV_W9StabJ9qi-Ow4Smx1EEYS3wHd8meAN876w';
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w500';
 
 const TMDB_OPTIONS = {
@@ -64,8 +64,39 @@ const cleanKeyword = (keyword) => {
     .toLowerCase();
 };
 
+/************  PEQUEÑAS UTILIDADES  ************/
+const isMovieInLocalList = (tmdbMovie, localMovies) => {
+  if (!tmdbMovie || !Array.isArray(localMovies)) return false;
+  const tTitle = (tmdbMovie.title || tmdbMovie.original_title || '').trim().toLowerCase();
+
+  return localMovies.some(p => {
+    const localTitle = (p.titulo || '').trim().toLowerCase();
+    if (p.tmdbId && tmdbMovie.id && p.tmdbId === tmdbMovie.id) return true;
+    return localTitle && localTitle === tTitle;
+  });
+};
+
+const keywordsChipsBlock = () => {
+  const kws = getStoredKeywords();
+  if (!kws || !kws.length) return '';
+
+  const chips = kws.map(kw => `
+    <button class="keyword-link keyword-chip"
+            data-keyword="${encodeURIComponent(kw)}">
+      ${kw}
+    </button>
+  `).join('');
+
+  return `
+    <div class="keywords-chips-bar">
+      <span class="keywords-chips-title">Mis keywords:</span>
+      ${chips}
+    </div>
+  `;
+};
+
 /************  VISTAS  ************/
-const indexView = (peliculas) => {
+const indexView = (peliculas, localQuery = '') => {
   let cards = peliculas.map((p, i) => {
     const keywordBtn = p.tmdbId
       ? `<button class="keywords"
@@ -95,15 +126,28 @@ const indexView = (peliculas) => {
 
   return `
     <div class="container">
+
+      <div class="top-bar">
+        <div class="top-actions">
+          <button class="new">añadir</button>
+          <button class="search-view">buscar en TMDb</button>
+          <button class="my-keywords">mis palabras clave</button>
+          <button class="reset">reset</button>
+        </div>
+        <div class="top-search">
+          <input type="text" id="search_local"
+                 placeholder="Filtrar por título o director..."
+                 value="${localQuery}">
+          <span class="movies-count">
+            ${peliculas.length} película${peliculas.length === 1 ? '' : 's'}
+          </span>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
       <div class="movies-grid">
         ${cards}
-      </div>
-      <div class="hr"></div>
-      <div class="actions">
-        <button class="new">añadir</button>
-        <button class="search-view">buscar en TMDb</button>
-        <button class="my-keywords">mis palabras clave</button>
-        <button class="reset">reset</button>
       </div>
     </div>`;
 };
@@ -166,40 +210,75 @@ const newView = () => `
 `;
 
 /************  VISTA BÚSQUEDA TMDb  ************/
-const searchView = () => `
-  <div class="container">
-    <h2>Buscar películas en TMDb</h2>
-    <div class="search-bar">
-      <input type="text" id="search_query"
-             placeholder="Escribe el título de una película y pulsa buscar...">
-      <button class="search">buscar</button>
-      <button class="index">volver</button>
+const searchView = () => {
+  const chips = keywordsChipsBlock();
+  return `
+    <div class="container">
+      <h2>Buscar películas en TMDb</h2>
+
+      <div class="search-bar">
+        <input type="text" id="search_query"
+               placeholder="Escribe el título o la keyword y pulsa buscar...">
+        <div class="search-mode">
+          <label>
+            <input type="radio" name="search_mode" value="title" checked>
+            Título
+          </label>
+          <label>
+            <input type="radio" name="search_mode" value="keyword">
+            Keyword
+          </label>
+        </div>
+        <button class="search">buscar</button>
+        <button class="index">volver</button>
+      </div>
+
+      ${chips}
+
+      <div id="search_results" class="search-results-empty">
+        Escribe un título o una palabra clave y pulsa "buscar".
+      </div>
     </div>
-    <div id="search_results" class="search-results-empty">
-      Escribe un título y pulsa "buscar".
-    </div>
-  </div>
-`;
+  `;
+};
 
 /************  VISTA RESULTADOS TMDb  ************/
-const resultsView = (resultados, query) => {
+const resultsView = (resultados, query, localMovies = []) => {
+  const chips = keywordsChipsBlock();
+
   if (!resultados || resultados.length === 0) {
     return `
       <div class="container">
         <h2>Buscar películas en TMDb</h2>
+
         <div class="search-bar">
           <input type="text" id="search_query"
-                 placeholder="Escribe el título de una película y pulsa buscar..."
+                 placeholder="Escribe el título o la keyword y pulsa buscar..."
                  value="${query || ''}">
+          <div class="search-mode">
+            <label>
+              <input type="radio" name="search_mode" value="title" checked>
+              Título
+            </label>
+            <label>
+              <input type="radio" name="search_mode" value="keyword">
+              Keyword
+            </label>
+          </div>
           <button class="search">buscar</button>
           <button class="index">volver</button>
         </div>
+
+        ${chips}
+
         <div id="search_results" class="search-results-empty">
           No se han encontrado resultados para "<strong>${query || ''}</strong>".
         </div>
       </div>
     `;
   }
+
+  const isKeywordMode = query && query.starts_with && query.startsWith('keyword: ');
 
   const cards = resultados.map((r, i) => {
     const poster = r.poster_path
@@ -211,6 +290,11 @@ const resultsView = (resultados, query) => {
       : 'Sin sinopsis disponible.';
 
     const safeTitle = encodeURIComponent(r.title || '');
+    const yaEnLista = isMovieInLocalList(r, localMovies);
+
+    const addBtn = yaEnLista
+      ? `<button class="add-from-api" data-my-id="${i}" disabled>en tu lista</button>`
+      : `<button class="add-from-api" data-my-id="${i}">añadir</button>`;
 
     return `
       <div class="movie">
@@ -221,7 +305,7 @@ const resultsView = (resultados, query) => {
         <div class="extra">Estreno: ${fecha}</div>
         <p class="overview">${overview}</p>
         <div class="actions">
-          <button class="add-from-api" data-my-id="${i}">añadir</button>
+          ${addBtn}
           <button class="keywords"
                   data-movie-id="${r.id}"
                   data-movie-title="${safeTitle}">
@@ -235,13 +319,27 @@ const resultsView = (resultados, query) => {
   return `
     <div class="container">
       <h2>Buscar películas en TMDb</h2>
+
       <div class="search-bar">
         <input type="text" id="search_query"
-               placeholder="Escribe el título de una película y pulsa buscar..."
+               placeholder="Escribe el título o la keyword y pulsa buscar..."
                value="${query || ''}">
+        <div class="search-mode">
+          <label>
+            <input type="radio" name="search_mode" value="title" ${!isKeywordMode ? 'checked' : ''}>
+            Título
+          </label>
+          <label>
+            <input type="radio" name="search_mode" value="keyword" ${isKeywordMode ? 'checked' : ''}>
+            Keyword
+          </label>
+        </div>
         <button class="search">buscar</button>
         <button class="index">volver</button>
       </div>
+
+      ${chips}
+
       <div id="search_results" class="movies-grid">
         ${cards}
       </div>
@@ -344,6 +442,17 @@ const myKeywordsView = (keywords) => {
 };
 
 /************  CONTROLADORES BÁSICOS  ************/
+const renderIndex = (peliculas, localQuery = '') => {
+  document.getElementById('main').innerHTML = indexView(peliculas, localQuery);
+  // Reenfocar el buscador local y poner el cursor al final
+  const input = document.getElementById('search_local');
+  if (input) {
+    input.focus();
+    const len = input.value.length;
+    input.setSelectionRange(len, len);
+  }
+};
+
 const initContr = async () => {
   if (!getMovies()) await postAPI(mis_peliculas_iniciales); // siembra inicial
   indexContr();
@@ -351,7 +460,23 @@ const initContr = async () => {
 
 const indexContr = async () => {
   mis_peliculas = (await getAPI()) || [];
-  document.getElementById('main').innerHTML = indexView(mis_peliculas);
+  renderIndex(mis_peliculas, '');
+};
+
+const searchLocalContr = (query) => {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) {
+    renderIndex(mis_peliculas, '');
+    return;
+  }
+
+  const filtradas = mis_peliculas.filter(p => {
+    const t = (p.titulo || '').toLowerCase();
+    const d = (p.director || '').toLowerCase();
+    return t.includes(q) || d.includes(q);
+  });
+
+  renderIndex(filtradas, query);
 };
 
 const showContr = (i) => {
@@ -431,7 +556,7 @@ const searchViewContr = () => {
 };
 
 // Ejecuta la búsqueda en TMDb usando el término del usuario (por título)
-const searchContr = async (query) => {
+const searchByTitleContr = async (query) => {
   const q = (query || '').trim();
   if (!q) {
     alert('Escribe un título para buscar.');
@@ -453,8 +578,9 @@ const searchContr = async (query) => {
     const data = await res.json();
     tmdb_last_results = Array.isArray(data.results) ? data.results : [];
 
+    const localMovies = getMovies() || [];
     document.getElementById('main').innerHTML =
-      resultsView(tmdb_last_results, tmdb_last_query);
+      resultsView(tmdb_last_results, tmdb_last_query, localMovies);
 
     document.getElementById('search_query')?.focus();
   } catch (err) {
@@ -465,7 +591,17 @@ const searchContr = async (query) => {
         <div class="search-bar">
           <input type="text" id="search_query"
                  value="${tmdb_last_query}"
-                 placeholder="Escribe el título de una película y pulsa buscar...">
+                 placeholder="Escribe el título o la keyword y pulsa buscar...">
+          <div class="search-mode">
+            <label>
+              <input type="radio" name="search_mode" value="title" checked>
+              Título
+            </label>
+            <label>
+              <input type="radio" name="search_mode" value="keyword">
+              Keyword
+            </label>
+          </div>
           <button class="search">buscar</button>
           <button class="index">volver</button>
         </div>
@@ -497,7 +633,10 @@ const addFromAPIContr = async (i, btn) => {
 
   if (existe) {
     alert('Esa película ya está en tu lista.');
-    if (btn) { btn.disabled = false; btn.textContent = 'añadir'; }
+    if (btn) {
+      btn.textContent = 'en tu lista';
+      btn.disabled = true;
+    }
     return;
   }
 
@@ -516,10 +655,12 @@ const addFromAPIContr = async (i, btn) => {
   await updateAPI(actual);
 
   if (btn) {
-    btn.textContent = 'añadido';
+    btn.textContent = 'en tu lista';
+    btn.disabled = true;
   }
 
   alert(`"${titulo}" se ha añadido a tus películas.`);
+  mis_peliculas = actual;
 };
 
 /************  CONTROLADORES PALABRAS CLAVE (3ª PARTE)  ************/
@@ -629,6 +770,8 @@ const searchByKeywordContr = async (keyword) => {
     return;
   }
 
+  tmdb_last_query = `keyword: ${kw}`;
+
   try {
     // 1) Buscar ID de la keyword
     const urlKw = 'https://api.themoviedb.org/3/search/keyword?query='
@@ -665,10 +808,10 @@ const searchByKeywordContr = async (keyword) => {
     const dataMovies = await resMovies.json();
 
     tmdb_last_results = Array.isArray(dataMovies.results) ? dataMovies.results : [];
-    tmdb_last_query = `keyword: ${kw}`;
 
+    const localMovies = getMovies() || [];
     document.getElementById('main').innerHTML =
-      resultsView(tmdb_last_results, `keyword: ${kw}`);
+      resultsView(tmdb_last_results, `keyword: ${kw}`, localMovies);
   } catch (err) {
     console.error(err);
     document.getElementById('main').innerHTML = `
@@ -699,14 +842,22 @@ document.addEventListener('click', ev => {
   else if (matchEvent(ev, '.delete'))       deleteContr(myId(ev));
   else if (matchEvent(ev, '.reset'))        resetContr();
 
-  // Búsqueda TMDb por título
+  // Búsqueda TMDb por título / keyword
   else if (matchEvent(ev, '.search-view'))  searchViewContr();
   else if (matchEvent(ev, '.search')) {
     const query = document.getElementById('search_query')?.value || '';
-    searchContr(query);
+    const modeEl = document.querySelector('input[name="search_mode"]:checked');
+    const mode = modeEl ? modeEl.value : 'title';
+
+    if (mode === 'keyword') {
+      searchByKeywordContr(query);
+    } else {
+      searchByTitleContr(query);
+    }
   }
   else if (matchEvent(ev, '.add-from-api')) {
     const btn = ev.target;
+    if (btn.disabled) return;
     btn.disabled = true;
     btn.textContent = 'añadiendo...';
     addFromAPIContr(myId(ev), btn);
@@ -729,23 +880,36 @@ document.addEventListener('click', ev => {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     deleteKeywordContr(kw);
   }
-  // Clic en cualquier texto de keyword (vista de peli o lista personal)
+  // Clic en cualquier texto/chip de keyword (vista de peli, lista personal o chips)
   else if (matchEvent(ev, '.keyword-link')) {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     searchByKeywordContr(kw);
   }
 });
 
-// Buscar al pulsar Enter en el input de búsqueda
+// Buscar al pulsar Enter en el input de búsqueda TMDb
 document.addEventListener('keyup', ev => {
   if (ev.key === 'Enter' && ev.target.id === 'search_query') {
     const query = ev.target.value || '';
-    searchContr(query);
+    const modeEl = document.querySelector('input[name="search_mode"]:checked');
+    const mode = modeEl ? modeEl.value : 'title';
+    if (mode === 'keyword') {
+      searchByKeywordContr(query);
+    } else {
+      searchByTitleContr(query);
+    }
+  }
+
+  // Filtro local de películas en la pantalla principal
+  if (ev.target.id === 'search_local') {
+    searchLocalContr(ev.target.value);
   }
 });
 
 /************  Inicialización  ************/
 document.addEventListener('DOMContentLoaded', initContr);
+
+
 
 
 
