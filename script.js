@@ -41,11 +41,6 @@ function setStoredKeywords(arr) {
 }
 
 /************  CONFIG TMDb (2ª y 3ª PARTE)  ************/
-/*
- * IMPORTANTE:
- * TMDB_BEARER_TOKEN es tu token de acceso de lectura (v4) de TMDb.
- * En un proyecto real, NO debería estar visible en el front.
- */
 const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmNDNlOGI3ODc2YTQ1N2NkZDU5YTgwNjZhNmNmNDlmMiIsIm5iZiI6MTc2Mjg3OTM3MS42MDksInN1YiI6IjY5MTM2NzhiZThkMjQxZTdiNWMwNjg2ZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.owzzjV_WW9StabJ9qi-Ow4Smx1EEYS3wHd8meAN876w';
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w500';
 
@@ -133,10 +128,11 @@ const editView = (i, pelicula) => `
   </div>
 `;
 
+/* ⬇⬇⬇ AQUÍ cambio: añado clase movie-detail para controlar el tamaño ⬇⬇⬇ */
 const showView = (pelicula) => `
   <div class="container">
     <h2>${pelicula.titulo || "Sin título"}</h2>
-    <div class="movie">
+    <div class="movie movie-detail">
       <div class="movie-img">
         <img src="${pelicula.miniatura || 'files/placeholder.png'}"
              onerror="this.src='files/placeholder.png'">
@@ -149,6 +145,7 @@ const showView = (pelicula) => `
     </div>
   </div>
 `;
+/* ⬆⬆⬆ FIN cambio showView ⬆⬆⬆ */
 
 const newView = () => `
   <div class="container">
@@ -732,7 +729,7 @@ document.addEventListener('click', ev => {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     deleteKeywordContr(kw);
   }
-  // NUEVO: click en el texto de la keyword -> buscar pelis con esa keyword
+  // click en el texto de la keyword -> buscar pelis con esa keyword
   else if (matchEvent(ev, '.keyword-link')) {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     searchByKeywordContr(kw);
@@ -749,6 +746,7 @@ document.addEventListener('keyup', ev => {
 
 /************  Inicialización  ************/
 document.addEventListener('DOMContentLoaded', initContr);
+
 
 
 

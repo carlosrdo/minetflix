@@ -48,21 +48,29 @@ div#main { padding: 14px; }
 /* Contenedor centrado */
 .container { max-width: 1400px; margin: 0 auto; padding: 10px; }
 
-/* GRID de películas: ocupa todo el ancho disponible */
+/* GRID de películas: columnas de ancho fijo centradas */
 .movies-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 260px));
   gap: 18px;
   align-items: start;
+  justify-content: center;     /* que las tarjetas queden centradas */
 }
 
 /* Tarjeta de película */
 .movie {
   width: 100%;
+  max-width: 260px;            /* límite de ancho para que no se estire demasiado */
+  margin: 0 auto;
   padding: 10px;
   box-shadow: 2px 2px 7px #ccc;
   border-radius: 10px;
   background: #fff;
+}
+
+/* Tarjeta usada en la vista "ver" (detalle) */
+.movie-detail {
+  max-width: 420px;            /* un poco más grande que las demás */
 }
 
 /* ==== Carátulas a tamaño uniforme ==== */
@@ -203,5 +211,6 @@ div#main { padding: 14px; }
   color: #777;
   margin-bottom: 6px;
 }
+
 
 
