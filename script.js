@@ -567,8 +567,12 @@ const searchByTitleContr = async (query) => {
 
   try {
     // MISMA URL SENCILLA QUE TENÍAS CUANDO FUNCIONABA
-    const url = 'https://api.themoviedb.org/3/search/movie?query='
-      + encodeURIComponent(q);
+    const url = 'https://api.themoviedb.org/3/search/movie'
+  + '?include_adult=false'
+  + '&language=es-ES'
+  + '&page=1'
+  + '&query=' + encodeURIComponent(q);
+
 
     const res = await fetch(url, TMDB_OPTIONS);
 
@@ -646,15 +650,27 @@ const addFromAPIContr = async (i, btn) => {
   }
 
   const miniatura = peliAPI.poster_path
-    ? `${TMDB_IMG_BASE}${peliAPI.poster_path}`
-    : 'files/placeholder.png';
+  ? `${TMDB_IMG_BASE}${peliAPI.poster_path}`
+  : 'files/placeholder.png';
 
-  const nueva = {
-    titulo,
-    director: 'Desconocido (TMDb)',
-    miniatura,
-    tmdbId: peliAPI.id
-  };
+// Intentar obtener el director real desde TMDb
+let director = 'Desconocido (TMDb)';
+if (peliAPI.id) {
+  const dirName = await fetchDirectorFromTMDb(peliAPI.id);
+  if (dirName) {
+    director = dirName;
+  }
+}
+
+// 👈 AÑADIMOS EL ID DE TMDb PARA QUE LUEGO SE PUEDAN PEDIR LAS KEYWORDS
+const nueva = {
+  titulo,
+  director,
+  miniatura,
+  tmdbId: peliAPI.id || null
+};
+
+
 
   actual.push(nueva);
   await updateAPI(actual);
@@ -667,6 +683,32 @@ const addFromAPIContr = async (i, btn) => {
   alert(`"${titulo}" se ha añadido a tus películas.`);
   mis_peliculas = actual;
 };
+
+// Obtener el director de una película usando su id de TMDb
+const fetchDirectorFromTMDb = async (movieId) => {
+  if (!movieId) return null;
+
+  try {
+    const url = `https://api.themoviedb.org/3/movie/${movieId}/credits?language=es-ES`;
+    const res = await fetch(url, TMDB_OPTIONS);
+    if (!res.ok) {
+      console.warn('No se pudo obtener el director, status:', res.status);
+      return null;
+    }
+
+    const data = await res.json();
+
+    if (!Array.isArray(data.crew)) return null;
+
+    // En TMDb el trabajo del director suele venir como "Director"
+    const dir = data.crew.find(p => p.job === 'Director');
+    return dir ? dir.name : null;
+  } catch (err) {
+    console.error('Error al obtener director desde TMDb:', err);
+    return null;
+  }
+};
+
 
 /************  CONTROLADORES PALABRAS CLAVE (3ª PARTE)  ************/
 
