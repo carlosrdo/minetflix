@@ -1,14 +1,16 @@
 /************  MODELO (datos + persistencia)  ************/
-const STORAGE_KEY = 'mis_peliculas';
-const KEYWORDS_STORAGE_KEY = 'mis_keywords';
+const STORAGE_KEY = "mis_peliculas";
+const KEYWORDS_STORAGE_KEY = "mis_keywords";
 
 const mis_peliculas_iniciales = [];
-
 
 let mis_peliculas = [];
 
 // Helpers localStorage (API simulada)
-const postAPI = async (_peliculas) => { setMovies(_peliculas); return 'localStorage'; };
+const postAPI = async (_peliculas) => {
+  setMovies(_peliculas);
+  return "localStorage";
+};
 const getAPI = async () => getMovies();
 const updateAPI = async (peliculas) => setMovies(peliculas);
 
@@ -21,8 +23,12 @@ function getMovies() {
     return null;
   }
 }
-function setMovies(arr) { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
-function seedMovies() { setMovies(mis_peliculas_iniciales.slice()); }
+function setMovies(arr) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+function seedMovies() {
+  setMovies(mis_peliculas_iniciales.slice());
+}
 
 // CRUD almacenamiento lista de palabras clave personal
 function getStoredKeywords() {
@@ -38,15 +44,17 @@ function setStoredKeywords(arr) {
 }
 
 /************  CONFIG TMDb (2ª y 3ª PARTE)  ************/
-const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmNDNlOGI3ODc2YTQ1N2NkZDU5YTgwNjZhNmNmNDlmMiIsIm5iZiI6MTc2Mjg3OTM3MS42MDksInN1YiI6IjY5MTM2NzhiZThkMjQxZTdiNWMwNjg2ZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.owzzjV_WW9StabJ9qi-Ow4Smx1EEYS3wHd8meAN876w';
-const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w500';
+// Usa aquí tu token de TMDb. He mantenido el tuyo para que siga funcionando.
+const TMDB_BEARER_TOKEN =
+  "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmNDNlOGI3ODc2YTQ1N2NkZDU5YTgwNjZhNmNmNDlmMiIsIm5iZiI6MTc2Mjg3OTM3MS42MDksInN1YiI6IjY5MTM2NzhiZThkMjQxZTdiNWMwNjg2ZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.owzzjV_WW9StabJ9qi-Ow4Smx1EEYS3wHd8meAN876w";
+const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w500";
 
 const TMDB_OPTIONS = {
-  method: 'GET',
+  method: "GET",
   headers: {
-    accept: 'application/json',
-    Authorization: `Bearer ${TMDB_BEARER_TOKEN}`
-  }
+    accept: "application/json",
+    Authorization: `Bearer ${TMDB_BEARER_TOKEN}`,
+  },
 };
 
 // Guardamos últimos resultados de búsqueda TMDb
@@ -55,8 +63,8 @@ let tmdb_last_query = "";
 
 /************  UTILIDADES TEXTO / REGEX (3ª PARTE)  ************/
 const cleanKeyword = (keyword) => {
-  return (keyword || '')
-    .replace(/[^a-zñáéíóú0-9 ]+/igm, "") // quitar caracteres especiales
+  return (keyword || "")
+    .replace(/[^a-zñáéíóú0-9 ]+/gi, "") // quitar caracteres especiales
     .trim()
     .toLowerCase();
 };
@@ -64,10 +72,12 @@ const cleanKeyword = (keyword) => {
 /************  PEQUEÑAS UTILIDADES  ************/
 const isMovieInLocalList = (tmdbMovie, localMovies) => {
   if (!tmdbMovie || !Array.isArray(localMovies)) return false;
-  const tTitle = (tmdbMovie.title || tmdbMovie.original_title || '').trim().toLowerCase();
+  const tTitle = (tmdbMovie.title || tmdbMovie.original_title || "")
+    .trim()
+    .toLowerCase();
 
-  return localMovies.some(p => {
-    const localTitle = (p.titulo || '').trim().toLowerCase();
+  return localMovies.some((p) => {
+    const localTitle = (p.titulo || "").trim().toLowerCase();
     if (p.tmdbId && tmdbMovie.id && p.tmdbId === tmdbMovie.id) return true;
     return localTitle && localTitle === tTitle;
   });
@@ -75,14 +85,18 @@ const isMovieInLocalList = (tmdbMovie, localMovies) => {
 
 const keywordsChipsBlock = () => {
   const kws = getStoredKeywords();
-  if (!kws || !kws.length) return '';
+  if (!kws || !kws.length) return "";
 
-  const chips = kws.map(kw => `
+  const chips = kws
+    .map(
+      (kw) => `
     <button class="keyword-link keyword-chip"
             data-keyword="${encodeURIComponent(kw)}">
       ${kw}
     </button>
-  `).join('');
+  `
+    )
+    .join("");
 
   return `
     <div class="keywords-chips-bar">
@@ -92,45 +106,103 @@ const keywordsChipsBlock = () => {
   `;
 };
 
+const getStats = (peliculas) => {
+  const total = peliculas.length;
+  const favs = peliculas.filter((p) => p.favorito).length;
+  return { total, favs };
+};
+
 /************  VISTAS  ************/
-const indexView = (peliculas, localQuery = '') => {
-  let cards = peliculas.map((p) => {
-    // índice real de la película dentro del array global mis_peliculas
-    const idx = mis_peliculas.indexOf(p);
+const indexView = (peliculas, localQuery = "") => {
+  const { total, favs } = getStats(peliculas);
 
-    // por seguridad, si no se encontrara, no pintamos la tarjeta
-    if (idx === -1) return '';
+  let cards = peliculas
+    .map((p) => {
+      // índice real de la película dentro del array global mis_peliculas
+      const idx = mis_peliculas.indexOf(p);
+      if (idx === -1) return "";
 
-    const keywordBtn = p.tmdbId
-      ? `<button class="keywords"
+      const keywordBtn = p.tmdbId
+        ? `<button class="keywords"
                  data-movie-id="${p.tmdbId}"
-                 data-movie-title="${encodeURIComponent(p.titulo || '')}">
+                 data-movie-title="${encodeURIComponent(p.titulo || "")}">
              keywords
-         </button>`
-      : '';
+           </button>`
+        : "";
 
-    return `
-      <div class="movie">
-        <div class="movie-img">
+      const ratingText = p.rating ? `${p.rating.toFixed(1)}` : "3.0";
+
+      return `
+      <div class="movie ${p.favorito ? "is-fav" : ""}">
+        <div class="movie-img-wrapper">
           <img class="show" data-my-id="${idx}"
-               src="${p.miniatura || 'files/placeholder.png'}"
+               src="${p.miniatura || "files/placeholder.png"}"
                onerror="this.src='files/placeholder.png'">
+
+          <div class="rating-badge">
+            ★ ${ratingText}
+          </div>
+
+          <div class="movie-overlay">
+            <div class="movie-overlay-row">
+              <button class="icon-btn toggle-fav ${
+                p.favorito ? "active" : ""
+              }" data-my-id="${idx}" title="Marcar como favorito">
+                ${p.favorito ? "❤️" : "🤍"}
+              </button>
+              <button class="icon-btn show" data-my-id="${idx}" title="Ver detalles">
+                👁
+              </button>
+              <button class="icon-btn edit" data-my-id="${idx}" title="Editar">
+                ✏️
+              </button>
+              <button class="icon-btn danger delete" data-my-id="${idx}" title="Borrar">
+                🗑
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="title">${p.titulo || "<em>Sin título</em>"}</div>
-        <div class="actions">
-          <button class="show"   data-my-id="${idx}">ver</button>
-          <button class="edit"   data-my-id="${idx}">editar</button>
-          <button class="delete" data-my-id="${idx}">borrar</button>
+
+        <div class="movie-meta">
+          <div class="title">${p.titulo || "<em>Sin título</em>"}</div>
+          <div class="movie-director">${
+            p.director || "<em>Director desconocido</em>"
+          }</div>
+        </div>
+
+        <div class="movie-footer">
           ${keywordBtn}
         </div>
       </div>
     `;
-  }).join('');
+    })
+    .join("");
 
   return `
     <div class="container">
 
-      <div class="top-bar">
+      <!-- Tarjetas de resumen -->
+      <section class="stats-grid">
+        <article class="stat-card">
+          <div class="stat-label">Total Películas</div>
+          <div class="stat-value">${total}</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">Tiempo Total</div>
+          <div class="stat-value">—</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">Valoración Media</div>
+          <div class="stat-value">—</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">Favoritos</div>
+          <div class="stat-value">${favs}</div>
+        </article>
+      </section>
+
+      <!-- Barra superior -->
+      <section class="top-bar">
         <div class="top-actions">
           <button class="new">añadir</button>
           <button class="search-view">buscar en TMDb</button>
@@ -142,73 +214,113 @@ const indexView = (peliculas, localQuery = '') => {
                  placeholder="Filtrar por título o director..."
                  value="${localQuery}">
           <span class="movies-count">
-            ${peliculas.length} película${peliculas.length === 1 ? '' : 's'}
+            ${peliculas.length} película${
+    peliculas.length === 1 ? "" : "s"
+  }
           </span>
         </div>
-      </div>
+      </section>
 
       <div class="hr"></div>
 
-      <div class="movies-grid">
-        ${cards}
-      </div>
+      <!-- Grid de películas -->
+      <section class="movies-section">
+        <div class="movies-section-title">
+          <h2>Películas</h2>
+        </div>
+        <div class="movies-grid">
+          ${cards}
+        </div>
+      </section>
     </div>`;
 };
 
-
 const editView = (i, pelicula) => `
   <div class="container">
-    <h2>Editar Película</h2>
-    <div class="field">Título <br>
-      <input type="text" id="titulo" placeholder="Título" value="${pelicula.titulo || ''}">
-    </div>
-    <div class="field">Director <br>
-      <input type="text" id="director" placeholder="Director" value="${pelicula.director || ''}">
-    </div>
-    <div class="field">Miniatura <br>
-      <input type="text" id="miniatura" placeholder="URL de la miniatura" value="${pelicula.miniatura || ''}">
-      <div class="small">Si se deja vacío o falla, se usará el placeholder.</div>
-    </div>
-    <div class="actions">
-      <button class="update" data-my-id="${i}">actualizar</button>
-      <button class="index">volver</button>
+    <div class="form-card">
+      <h2>Editar Película</h2>
+      <div class="form-grid">
+        <div>
+          <div class="field">Título</div>
+          <input type="text" id="titulo" placeholder="Título" value="${
+            pelicula.titulo || ""
+          }">
+        </div>
+        <div>
+          <div class="field">Director</div>
+          <input type="text" id="director" placeholder="Director" value="${
+            pelicula.director || ""
+          }">
+        </div>
+        <div>
+          <div class="field">Miniatura</div>
+          <input type="text" id="miniatura" placeholder="URL de la miniatura" value="${
+            pelicula.miniatura || ""
+          }">
+          <div class="small">Si se deja vacío o falla, se usará el placeholder.</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="update" data-my-id="${i}">actualizar</button>
+        <button class="index">volver</button>
+      </div>
     </div>
   </div>
 `;
 
-// Vista detalle con tamaño contenido
+// Vista detalle con layout 2 columnas
 const showView = (pelicula) => `
   <div class="container">
-    <h2>${pelicula.titulo || "Sin título"}</h2>
-    <div class="movie movie-detail">
-      <div class="movie-img">
-        <img src="${pelicula.miniatura || 'files/placeholder.png'}"
+    <h2>Detalles de la película</h2>
+    <div class="details-layout">
+      <div class="details-panel details-poster">
+        <img src="${pelicula.miniatura || "files/placeholder.png"}"
              onerror="this.src='files/placeholder.png'">
       </div>
-      <div class="field">Director</div>
-      <div>${pelicula.director || "<em>Desconocido</em>"}</div>
-    </div>
-    <div class="actions">
-      <button class="index">volver</button>
+      <div class="details-panel">
+        <h3 class="details-main-title">${
+          pelicula.titulo || "Sin título"
+        }</h3>
+
+        <div class="field">Director</div>
+        <div>${pelicula.director || "<em>Desconocido</em>"}</div>
+
+        <div class="details-row" style="margin-top:16px;">
+          <span><strong>Favorita:</strong> ${
+            pelicula.favorito ? "Sí" : "No"
+          }</span>
+        </div>
+
+        <div class="actions" style="margin-top:20px;">
+          <button class="index">volver</button>
+        </div>
+      </div>
     </div>
   </div>
 `;
 
 const newView = () => `
   <div class="container">
-    <h2>Crear Película</h2>
-    <div class="field">Título <br>
-      <input type="text" id="new_titulo" placeholder="Título">
-    </div>
-    <div class="field">Director <br>
-      <input type="text" id="new_director" placeholder="Director">
-    </div>
-    <div class="field">Miniatura <br>
-      <input type="text" id="new_miniatura" placeholder="URL de la miniatura (opcional)">
-    </div>
-    <div class="actions">
-      <button class="create">crear</button>
-      <button class="index">volver</button>
+    <div class="form-card">
+      <h2>Crear Película</h2>
+      <div class="form-grid">
+        <div>
+          <div class="field">Título</div>
+          <input type="text" id="new_titulo" placeholder="Título">
+        </div>
+        <div>
+          <div class="field">Director</div>
+          <input type="text" id="new_director" placeholder="Director">
+        </div>
+        <div>
+          <div class="field">Miniatura</div>
+          <input type="text" id="new_miniatura" placeholder="URL de la miniatura (opcional)">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="create">crear</button>
+        <button class="index">volver</button>
+      </div>
     </div>
   </div>
 `;
@@ -258,7 +370,7 @@ const resultsView = (resultados, query, localMovies = []) => {
         <div class="search-bar">
           <input type="text" id="search_query"
                  placeholder="Escribe el título o la keyword y pulsa buscar..."
-                 value="${query || ''}">
+                 value="${query || ""}">
           <div class="search-mode">
             <label>
               <input type="radio" name="search_mode" value="title" checked>
@@ -276,39 +388,45 @@ const resultsView = (resultados, query, localMovies = []) => {
         ${chips}
 
         <div id="search_results" class="search-results-empty">
-          No se han encontrado resultados para "<strong>${query || ''}</strong>".
+          No se han encontrado resultados para "<strong>${query || ""}</strong>".
         </div>
       </div>
     `;
   }
 
-  const isKeywordMode = query && query.starts_with && query.startsWith('keyword: ');
+  const isKeywordMode =
+    typeof query === "string" && query.startsWith("keyword: ");
 
-  const cards = resultados.map((r, i) => {
-    const poster = r.poster_path
-      ? `${TMDB_IMG_BASE}${r.poster_path}`
-      : 'files/placeholder.png';
-    const fecha = r.release_date || 'Fecha desconocida';
-    const overview = r.overview
-      ? (r.overview.length > 220 ? r.overview.slice(0, 220) + '…' : r.overview)
-      : 'Sin sinopsis disponible.';
+  const cards = resultados
+    .map((r, i) => {
+      const poster = r.poster_path
+        ? `${TMDB_IMG_BASE}${r.poster_path}`
+        : "files/placeholder.png";
+      const fecha = r.release_date || "Fecha desconocida";
+      const overview = r.overview
+        ? r.overview.length > 220
+          ? r.overview.slice(0, 220) + "…"
+          : r.overview
+        : "Sin sinopsis disponible.";
 
-    const safeTitle = encodeURIComponent(r.title || '');
-    const yaEnLista = isMovieInLocalList(r, localMovies);
+      const safeTitle = encodeURIComponent(r.title || "");
+      const yaEnLista = isMovieInLocalList(r, localMovies);
 
-    const addBtn = yaEnLista
-      ? `<button class="add-from-api" data-my-id="${i}" disabled>en tu lista</button>`
-      : `<button class="add-from-api" data-my-id="${i}">añadir</button>`;
+      const addBtn = yaEnLista
+        ? `<button class="add-from-api" data-my-id="${i}" disabled>en tu lista</button>`
+        : `<button class="add-from-api" data-my-id="${i}">añadir</button>`;
 
-    return `
+      return `
       <div class="movie">
-        <div class="movie-img">
+        <div class="movie-img-wrapper">
           <img src="${poster}" onerror="this.src='files/placeholder.png'">
         </div>
-        <div class="title">${r.title || 'Sin título'}</div>
-        <div class="extra">Estreno: ${fecha}</div>
-        <p class="overview">${overview}</p>
-        <div class="actions">
+        <div class="movie-meta">
+          <div class="title">${r.title || "Sin título"}</div>
+          <div class="extra">Estreno: ${fecha}</div>
+          <p class="overview">${overview}</p>
+        </div>
+        <div class="movie-footer">
           ${addBtn}
           <button class="keywords"
                   data-movie-id="${r.id}"
@@ -318,7 +436,8 @@ const resultsView = (resultados, query, localMovies = []) => {
         </div>
       </div>
     `;
-  }).join('');
+    })
+    .join("");
 
   return `
     <div class="container">
@@ -327,14 +446,18 @@ const resultsView = (resultados, query, localMovies = []) => {
       <div class="search-bar">
         <input type="text" id="search_query"
                placeholder="Escribe el título o la keyword y pulsa buscar..."
-               value="${query || ''}">
+               value="${isKeywordMode ? query.replace("keyword: ", "") : query || ""}">
         <div class="search-mode">
           <label>
-            <input type="radio" name="search_mode" value="title" ${!isKeywordMode ? 'checked' : ''}>
+            <input type="radio" name="search_mode" value="title" ${
+              !isKeywordMode ? "checked" : ""
+            }>
             Título
           </label>
           <label>
-            <input type="radio" name="search_mode" value="keyword" ${isKeywordMode ? 'checked' : ''}>
+            <input type="radio" name="search_mode" value="keyword" ${
+              isKeywordMode ? "checked" : ""
+            }>
             Keyword
           </label>
         </div>
@@ -361,7 +484,9 @@ const keywordsView = (movieId, movieTitle, keywordList) => {
                  No se han encontrado palabras clave para esta película.
                </div>`;
   } else {
-    const items = keywordList.map(kw => `
+    const items = keywordList
+      .map(
+        (kw) => `
       <li>
         <span class="keyword-link"
               data-keyword="${encodeURIComponent(kw)}">
@@ -372,7 +497,9 @@ const keywordsView = (movieId, movieTitle, keywordList) => {
           agregar a mi lista
         </button>
       </li>
-    `).join('');
+    `
+      )
+      .join("");
 
     content = `
       <div class="keywords-list">
@@ -412,7 +539,9 @@ const myKeywordsView = (keywords) => {
       </div>
     `;
   } else {
-    const items = keywords.map(kw => `
+    const items = keywords
+      .map(
+        (kw) => `
       <li>
         <span class="keyword-link"
               data-keyword="${encodeURIComponent(kw)}">
@@ -423,7 +552,9 @@ const myKeywordsView = (keywords) => {
           eliminar
         </button>
       </li>
-    `).join('');
+    `
+      )
+      .join("");
 
     content = `
       <div class="keywords-list">
@@ -446,10 +577,10 @@ const myKeywordsView = (keywords) => {
 };
 
 /************  CONTROLADORES BÁSICOS  ************/
-const renderIndex = (peliculas, localQuery = '') => {
-  document.getElementById('main').innerHTML = indexView(peliculas, localQuery);
+const renderIndex = (peliculas, localQuery = "") => {
+  document.getElementById("main").innerHTML = indexView(peliculas, localQuery);
   // Reenfocar el buscador local y poner el cursor al final
-  const input = document.getElementById('search_local');
+  const input = document.getElementById("search_local");
   if (input) {
     input.focus();
     const len = input.value.length;
@@ -464,19 +595,19 @@ const initContr = async () => {
 
 const indexContr = async () => {
   mis_peliculas = (await getAPI()) || [];
-  renderIndex(mis_peliculas, '');
+  renderIndex(mis_peliculas, "");
 };
 
 const searchLocalContr = (query) => {
-  const q = (query || '').trim().toLowerCase();
+  const q = (query || "").trim().toLowerCase();
   if (!q) {
-    renderIndex(mis_peliculas, '');
+    renderIndex(mis_peliculas, "");
     return;
   }
 
-  const filtradas = mis_peliculas.filter(p => {
-    const t = (p.titulo || '').toLowerCase();
-    const d = (p.director || '').toLowerCase();
+  const filtradas = mis_peliculas.filter((p) => {
+    const t = (p.titulo || "").toLowerCase();
+    const d = (p.director || "").toLowerCase();
     return t.includes(q) || d.includes(q);
   });
 
@@ -486,28 +617,29 @@ const searchLocalContr = (query) => {
 const showContr = (i) => {
   const peli = mis_peliculas[i];
   if (!peli) return indexContr();
-  document.getElementById('main').innerHTML = showView(peli);
+  document.getElementById("main").innerHTML = showView(peli);
 };
 
 const newContr = () => {
-  document.getElementById('main').innerHTML = newView();
-  document.getElementById('new_titulo')?.focus();
+  document.getElementById("main").innerHTML = newView();
+  document.getElementById("new_titulo")?.focus();
 };
 
 const createContr = async () => {
-  const titulo    = (document.getElementById('new_titulo')?.value || '').trim();
-  const director  = (document.getElementById('new_director')?.value || '').trim();
-  const miniatura = (document.getElementById('new_miniatura')?.value || '').trim();
+  const titulo = (document.getElementById("new_titulo")?.value || "").trim();
+  const director = (document.getElementById("new_director")?.value || "").trim();
+  const miniatura = (document.getElementById("new_miniatura")?.value || "").trim();
 
   if (!titulo || !director) {
-    alert('Título y Director son obligatorios.');
+    alert("Título y Director son obligatorios.");
     return;
   }
 
   const nueva = {
     titulo,
     director,
-    miniatura: miniatura || 'files/placeholder.png'
+    miniatura: miniatura || "files/placeholder.png",
+    favorito: false,
   };
 
   const actual = (await getAPI()) || [];
@@ -517,15 +649,18 @@ const createContr = async () => {
 };
 
 const editContr = (i) => {
-  document.getElementById('main').innerHTML = editView(i, mis_peliculas[i]);
-  document.getElementById('titulo')?.focus();
+  document.getElementById("main").innerHTML = editView(i, mis_peliculas[i]);
+  document.getElementById("titulo")?.focus();
 };
 
 const updateContr = async (i) => {
-  mis_peliculas[i].titulo    = (document.getElementById('titulo')?.value || '').trim();
-  mis_peliculas[i].director  = (document.getElementById('director')?.value || '').trim();
+  mis_peliculas[i].titulo = (document.getElementById("titulo")?.value || "").trim();
+  mis_peliculas[i].director = (
+    document.getElementById("director")?.value || ""
+  ).trim();
   mis_peliculas[i].miniatura =
-    (document.getElementById('miniatura')?.value || '').trim() || 'files/placeholder.png';
+    (document.getElementById("miniatura")?.value || "").trim() ||
+    "files/placeholder.png";
 
   await updateAPI(mis_peliculas);
   indexContr();
@@ -534,7 +669,9 @@ const updateContr = async (i) => {
 const deleteContr = async (i) => {
   const peli = mis_peliculas[i];
   if (!peli) return;
-  const ok = confirm(`¿Seguro que quieres borrar "${peli.titulo || 'esta película'}"?`);
+  const ok = confirm(
+    `¿Seguro que quieres borrar "${peli.titulo || "esta película"}"?`
+  );
   if (!ok) return;
   const actual = (await getAPI()) || [];
   actual.splice(i, 1);
@@ -543,14 +680,26 @@ const deleteContr = async (i) => {
 };
 
 const resetContr = async () => {
-  const ok = confirm('Esto borrará todas tus películas. ¿Continuar?');
+  const ok = confirm("Esto borrará todas tus películas. ¿Continuar?");
   if (!ok) return;
 
-  localStorage.removeItem(STORAGE_KEY); // elimina TODAS las películas guardadas
-  mis_peliculas = [];                    // deja vacío el array en memoria
-  indexContr();                           // repinta la vista sin películas
+  localStorage.removeItem(STORAGE_KEY);
+  mis_peliculas = [];
+  indexContr();
 };
 
+// Toggle favorito
+const toggleFavContr = async (i) => {
+  const actual = (await getAPI()) || [];
+  if (!actual[i]) return;
+  actual[i].favorito = !actual[i].favorito;
+  await updateAPI(actual);
+  mis_peliculas = actual;
+
+  const currentFilter =
+    document.getElementById("search_local")?.value || "";
+  searchLocalContr(currentFilter);
+};
 
 /************  CONTROLADORES TMDb (búsqueda + añadir título)  ************/
 
@@ -558,36 +707,39 @@ const resetContr = async () => {
 const searchViewContr = () => {
   tmdb_last_results = [];
   tmdb_last_query = "";
-  document.getElementById('main').innerHTML = searchView();
-  document.getElementById('search_query')?.focus();
+  document.getElementById("main").innerHTML = searchView();
+  document.getElementById("search_query")?.focus();
 };
 
 // Ejecuta la búsqueda en TMDb usando el término del usuario (por título)
 const searchByTitleContr = async (query) => {
-  const q = (query || '').trim();
+  const q = (query || "").trim();
   if (!q) {
-    alert('Escribe un título para buscar.');
+    alert("Escribe un título para buscar.");
     return;
   }
 
   tmdb_last_query = q;
 
   try {
-    // MISMA URL SENCILLA QUE TENÍAS CUANDO FUNCIONABA
-    const url = 'https://api.themoviedb.org/3/search/movie'
-  + '?include_adult=false'
-  + '&language=es-ES'
-  + '&page=1'
-  + '&query=' + encodeURIComponent(q);
-
+    const url =
+      "https://api.themoviedb.org/3/search/movie" +
+      "?include_adult=false" +
+      "&language=es-ES" +
+      "&page=1" +
+      "&query=" +
+      encodeURIComponent(q);
 
     const res = await fetch(url, TMDB_OPTIONS);
 
-    // Si TMDb responde con error, lo mostramos en consola pero no “rompemos” nada más
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      console.error('TMDb error search/movie:', res.status, text);
-      alert('TMDb ha devuelto un error (' + res.status + '). Revisa tu clave o vuelve a intentarlo en un rato.');
+      const text = await res.text().catch(() => "");
+      console.error("TMDb error search/movie:", res.status, text);
+      alert(
+        "TMDb ha devuelto un error (" +
+          res.status +
+          "). Revisa tu clave o vuelve a intentarlo en un rato."
+      );
       return;
     }
 
@@ -595,13 +747,16 @@ const searchByTitleContr = async (query) => {
     tmdb_last_results = Array.isArray(data.results) ? data.results : [];
 
     const localMovies = getMovies() || [];
-    document.getElementById('main').innerHTML =
-      resultsView(tmdb_last_results, tmdb_last_query, localMovies);
+    document.getElementById("main").innerHTML = resultsView(
+      tmdb_last_results,
+      tmdb_last_query,
+      localMovies
+    );
 
-    document.getElementById('search_query')?.focus();
+    document.getElementById("search_query")?.focus();
   } catch (err) {
-    console.error('Error de red al conectar con TMDb:', err);
-    document.getElementById('main').innerHTML = `
+    console.error("Error de red al conectar con TMDb:", err);
+    document.getElementById("main").innerHTML = `
       <div class="container">
         <h2>Buscar películas en TMDb</h2>
         <div class="search-bar">
@@ -629,61 +784,61 @@ const searchByTitleContr = async (query) => {
   }
 };
 
-
 // Añade película seleccionada desde los resultados TMDb al modelo local
 const addFromAPIContr = async (i, btn) => {
   const peliAPI = tmdb_last_results[i];
   if (!peliAPI) return;
 
-  const titulo = (peliAPI.title || peliAPI.original_title || '').trim();
+  const titulo = (peliAPI.title || peliAPI.original_title || "").trim();
   if (!titulo) {
-    alert('No se puede añadir una película sin título.');
-    if (btn) { btn.disabled = false; btn.textContent = 'añadir'; }
+    alert("No se puede añadir una película sin título.");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "añadir";
+    }
     return;
   }
 
   const actual = (await getAPI()) || [];
   const existe = actual.some(
-    p => (p.titulo || '').toLowerCase() === titulo.toLowerCase()
+    (p) => (p.titulo || "").toLowerCase() === titulo.toLowerCase()
   );
 
   if (existe) {
-    alert('Esa película ya está en tu lista.');
+    alert("Esa película ya está en tu lista.");
     if (btn) {
-      btn.textContent = 'en tu lista';
+      btn.textContent = "en tu lista";
       btn.disabled = true;
     }
     return;
   }
 
   const miniatura = peliAPI.poster_path
-  ? `${TMDB_IMG_BASE}${peliAPI.poster_path}`
-  : 'files/placeholder.png';
+    ? `${TMDB_IMG_BASE}${peliAPI.poster_path}`
+    : "files/placeholder.png";
 
-// Intentar obtener el director real desde TMDb
-let director = 'Desconocido (TMDb)';
-if (peliAPI.id) {
-  const dirName = await fetchDirectorFromTMDb(peliAPI.id);
-  if (dirName) {
-    director = dirName;
+  // Intentar obtener el director real desde TMDb
+  let director = "Desconocido (TMDb)";
+  if (peliAPI.id) {
+    const dirName = await fetchDirectorFromTMDb(peliAPI.id);
+    if (dirName) {
+      director = dirName;
+    }
   }
-}
 
-// 👈 AÑADIMOS EL ID DE TMDb PARA QUE LUEGO SE PUEDAN PEDIR LAS KEYWORDS
-const nueva = {
-  titulo,
-  director,
-  miniatura,
-  tmdbId: peliAPI.id || null
-};
-
-
+  const nueva = {
+    titulo,
+    director,
+    miniatura,
+    tmdbId: peliAPI.id || null,
+    favorito: false,
+  };
 
   actual.push(nueva);
   await updateAPI(actual);
 
   if (btn) {
-    btn.textContent = 'en tu lista';
+    btn.textContent = "en tu lista";
     btn.disabled = true;
   }
 
@@ -699,7 +854,7 @@ const fetchDirectorFromTMDb = async (movieId) => {
     const url = `https://api.themoviedb.org/3/movie/${movieId}/credits?language=es-ES`;
     const res = await fetch(url, TMDB_OPTIONS);
     if (!res.ok) {
-      console.warn('No se pudo obtener el director, status:', res.status);
+      console.warn("No se pudo obtener el director, status:", res.status);
       return null;
     }
 
@@ -707,15 +862,13 @@ const fetchDirectorFromTMDb = async (movieId) => {
 
     if (!Array.isArray(data.crew)) return null;
 
-    // En TMDb el trabajo del director suele venir como "Director"
-    const dir = data.crew.find(p => p.job === 'Director');
+    const dir = data.crew.find((p) => p.job === "Director");
     return dir ? dir.name : null;
   } catch (err) {
-    console.error('Error al obtener director desde TMDb:', err);
+    console.error("Error al obtener director desde TMDb:", err);
     return null;
   }
 };
-
 
 /************  CONTROLADORES PALABRAS CLAVE (3ª PARTE)  ************/
 
@@ -727,7 +880,7 @@ const processKeywords = (keywords) => {
   if (!Array.isArray(keywords)) return result;
 
   for (const k of keywords) {
-    const name = k && k.name ? k.name : '';
+    const name = k && k.name ? k.name : "";
     const cleaned = cleanKeyword(name);
     if (!cleaned) continue;
     if (seen.has(cleaned)) continue;
@@ -742,29 +895,30 @@ const processKeywords = (keywords) => {
 // Controlador que obtiene keywords de una película
 const keywordsContr = async (movieId, encodedTitle) => {
   if (!movieId) {
-    alert('No se ha encontrado el ID de la película.');
+    alert("No se ha encontrado el ID de la película.");
     return;
   }
 
-  const movieTitle = encodedTitle
-    ? decodeURIComponent(encodedTitle)
-    : '';
+  const movieTitle = encodedTitle ? decodeURIComponent(encodedTitle) : "";
 
   try {
     const url = `https://api.themoviedb.org/3/movie/${movieId}/keywords`;
     const res = await fetch(url, TMDB_OPTIONS);
     if (!res.ok) {
-      throw new Error('Error HTTP ' + res.status);
+      throw new Error("Error HTTP " + res.status);
     }
 
     const data = await res.json();
     const lista = processKeywords(data.keywords || []);
 
-    document.getElementById('main').innerHTML =
-      keywordsView(movieId, movieTitle, lista);
+    document.getElementById("main").innerHTML = keywordsView(
+      movieId,
+      movieTitle,
+      lista
+    );
   } catch (err) {
     console.error(err);
-    document.getElementById('main').innerHTML = `
+    document.getElementById("main").innerHTML = `
       <div class="container">
         <h2>Palabras clave</h2>
         <div class="error">
@@ -783,13 +937,13 @@ const keywordsContr = async (movieId, encodedTitle) => {
 const addKeywordToList = (keyword) => {
   const cleaned = cleanKeyword(keyword);
   if (!cleaned) {
-    alert('Palabra clave no válida.');
+    alert("Palabra clave no válida.");
     return;
   }
 
   const list = getStoredKeywords();
   if (list.includes(cleaned)) {
-    alert('Esa palabra clave ya está en tu lista.');
+    alert("Esa palabra clave ya está en tu lista.");
     return;
   }
 
@@ -802,7 +956,7 @@ const addKeywordToList = (keyword) => {
 // Muestra vista con lista personalizada
 const myKeywordsContr = () => {
   const list = getStoredKeywords();
-  document.getElementById('main').innerHTML = myKeywordsView(list);
+  document.getElementById("main").innerHTML = myKeywordsView(list);
 };
 
 // Elimina palabra clave de la lista personalizada
@@ -811,16 +965,16 @@ const deleteKeywordContr = (keyword) => {
   if (!cleaned) return;
 
   let list = getStoredKeywords();
-  list = list.filter(k => k !== cleaned);
+  list = list.filter((k) => k !== cleaned);
   setStoredKeywords(list);
-  document.getElementById('main').innerHTML = myKeywordsView(list);
+  document.getElementById("main").innerHTML = myKeywordsView(list);
 };
 
 /************  Buscar películas por keyword  ************/
 const searchByKeywordContr = async (keyword) => {
   const kw = cleanKeyword(keyword);
   if (!kw) {
-    alert('Palabra clave no válida.');
+    alert("Palabra clave no válida.");
     return;
   }
 
@@ -828,15 +982,16 @@ const searchByKeywordContr = async (keyword) => {
 
   try {
     // 1) Buscar ID de la keyword
-    const urlKw = 'https://api.themoviedb.org/3/search/keyword?query='
-      + encodeURIComponent(kw)
-      + '&page=1';
+    const urlKw =
+      "https://api.themoviedb.org/3/search/keyword?query=" +
+      encodeURIComponent(kw) +
+      "&page=1";
     const resKw = await fetch(urlKw, TMDB_OPTIONS);
-    if (!resKw.ok) throw new Error('Error HTTP ' + resKw.status);
+    if (!resKw.ok) throw new Error("Error HTTP " + resKw.status);
     const dataKw = await resKw.json();
 
     if (!dataKw.results || dataKw.results.length === 0) {
-      document.getElementById('main').innerHTML = `
+      document.getElementById("main").innerHTML = `
         <div class="container">
           <h2>Resultados por palabra clave</h2>
           <div class="keywords-empty">
@@ -853,22 +1008,28 @@ const searchByKeywordContr = async (keyword) => {
     const keywordId = dataKw.results[0].id;
 
     // 2) Buscar películas con esa keyword
-    const urlMovies = 'https://api.themoviedb.org/3/discover/movie'
-      + '?include_adult=false&language=es-ES&page=1&with_keywords='
-      + keywordId;
+    const urlMovies =
+      "https://api.themoviedb.org/3/discover/movie" +
+      "?include_adult=false&language=es-ES&page=1&with_keywords=" +
+      keywordId;
 
     const resMovies = await fetch(urlMovies, TMDB_OPTIONS);
-    if (!resMovies.ok) throw new Error('Error HTTP ' + resMovies.status);
+    if (!resMovies.ok) throw new Error("Error HTTP " + resMovies.status);
     const dataMovies = await resMovies.json();
 
-    tmdb_last_results = Array.isArray(dataMovies.results) ? dataMovies.results : [];
+    tmdb_last_results = Array.isArray(dataMovies.results)
+      ? dataMovies.results
+      : [];
 
     const localMovies = getMovies() || [];
-    document.getElementById('main').innerHTML =
-      resultsView(tmdb_last_results, `keyword: ${kw}`, localMovies);
+    document.getElementById("main").innerHTML = resultsView(
+      tmdb_last_results,
+      `keyword: ${kw}`,
+      localMovies
+    );
   } catch (err) {
     console.error(err);
-    document.getElementById('main').innerHTML = `
+    document.getElementById("main").innerHTML = `
       <div class="container">
         <h2>Resultados por palabra clave</h2>
         <div class="error">
@@ -886,68 +1047,65 @@ const searchByKeywordContr = async (keyword) => {
 const matchEvent = (ev, sel) => ev.target.matches(sel);
 const myId = (ev) => Number(ev.target.dataset.myId);
 
-document.addEventListener('click', ev => {
-  if      (matchEvent(ev, '.index'))        indexContr();
-  else if (matchEvent(ev, '.show'))         showContr(myId(ev));
-  else if (matchEvent(ev, '.new'))          newContr();
-  else if (matchEvent(ev, '.create'))       createContr();
-  else if (matchEvent(ev, '.edit'))         editContr(myId(ev));
-  else if (matchEvent(ev, '.update'))       updateContr(myId(ev));
-  else if (matchEvent(ev, '.delete'))       deleteContr(myId(ev));
-  else if (matchEvent(ev, '.reset'))        resetContr();
+document.addEventListener("click", (ev) => {
+  if (matchEvent(ev, ".index")) indexContr();
+  else if (matchEvent(ev, ".show")) showContr(myId(ev));
+  else if (matchEvent(ev, ".new")) newContr();
+  else if (matchEvent(ev, ".create")) createContr();
+  else if (matchEvent(ev, ".edit")) editContr(myId(ev));
+  else if (matchEvent(ev, ".update")) updateContr(myId(ev));
+  else if (matchEvent(ev, ".delete")) deleteContr(myId(ev));
+  else if (matchEvent(ev, ".reset")) resetContr();
+  else if (matchEvent(ev, ".toggle-fav")) toggleFavContr(myId(ev));
 
   // Búsqueda TMDb por título / keyword
-  else if (matchEvent(ev, '.search-view'))  searchViewContr();
-  else if (matchEvent(ev, '.search')) {
-    const query = document.getElementById('search_query')?.value || '';
+  else if (matchEvent(ev, ".search-view")) searchViewContr();
+  else if (matchEvent(ev, ".search")) {
+    const query = document.getElementById("search_query")?.value || "";
     const modeEl = document.querySelector('input[name="search_mode"]:checked');
-    const mode = modeEl ? modeEl.value : 'title';
+    const mode = modeEl ? modeEl.value : "title";
 
-    if (mode === 'keyword') {
+    if (mode === "keyword") {
       searchByKeywordContr(query);
     } else {
       searchByTitleContr(query);
     }
-  }
-  else if (matchEvent(ev, '.add-from-api')) {
+  } else if (matchEvent(ev, ".add-from-api")) {
     const btn = ev.target;
     if (btn.disabled) return;
     btn.disabled = true;
-    btn.textContent = 'añadiendo...';
+    btn.textContent = "añadiendo...";
     addFromAPIContr(myId(ev), btn);
   }
 
   // Palabras clave TMDb
-  else if (matchEvent(ev, '.keywords')) {
+  else if (matchEvent(ev, ".keywords")) {
     const movieId = Number(ev.target.dataset.movieId);
-    const encodedTitle = ev.target.dataset.movieTitle || '';
+    const encodedTitle = ev.target.dataset.movieTitle || "";
     keywordsContr(movieId, encodedTitle);
-  }
-  else if (matchEvent(ev, '.add-keyword')) {
-    const kw = decodeURIComponent(ev.target.dataset.keyword || '');
+  } else if (matchEvent(ev, ".add-keyword")) {
+    const kw = decodeURIComponent(ev.target.dataset.keyword || "");
     addKeywordToList(kw);
-  }
-  else if (matchEvent(ev, '.my-keywords')) {
+  } else if (matchEvent(ev, ".my-keywords")) {
     myKeywordsContr();
-  }
-  else if (matchEvent(ev, '.delete-keyword')) {
-    const kw = decodeURIComponent(ev.target.dataset.keyword || '');
+  } else if (matchEvent(ev, ".delete-keyword")) {
+    const kw = decodeURIComponent(ev.target.dataset.keyword || "");
     deleteKeywordContr(kw);
   }
   // Clic en cualquier texto/chip de keyword (vista de peli, lista personal o chips)
-  else if (matchEvent(ev, '.keyword-link')) {
-    const kw = decodeURIComponent(ev.target.dataset.keyword || '');
+  else if (matchEvent(ev, ".keyword-link")) {
+    const kw = decodeURIComponent(ev.target.dataset.keyword || "");
     searchByKeywordContr(kw);
   }
 });
 
 // Buscar al pulsar Enter en el input de búsqueda TMDb
-document.addEventListener('keyup', ev => {
-  if (ev.key === 'Enter' && ev.target.id === 'search_query') {
-    const query = ev.target.value || '';
+document.addEventListener("keyup", (ev) => {
+  if (ev.key === "Enter" && ev.target.id === "search_query") {
+    const query = ev.target.value || "";
     const modeEl = document.querySelector('input[name="search_mode"]:checked');
-    const mode = modeEl ? modeEl.value : 'title';
-    if (mode === 'keyword') {
+    const mode = modeEl ? modeEl.value : "title";
+    if (mode === "keyword") {
       searchByKeywordContr(query);
     } else {
       searchByTitleContr(query);
@@ -955,18 +1113,10 @@ document.addEventListener('keyup', ev => {
   }
 
   // Filtro local de películas en la pantalla principal
-  if (ev.target.id === 'search_local') {
+  if (ev.target.id === "search_local") {
     searchLocalContr(ev.target.value);
   }
 });
 
 /************  Inicialización  ************/
-document.addEventListener('DOMContentLoaded', initContr);
-
-
-
-
-
-
-
-
+document.addEventListener("DOMContentLoaded", initContr);
