@@ -406,6 +406,7 @@ const searchView = () => {
 };
 
 /************  VISTA RESULTADOS TMDb  ************/
+// Vista de resultados TMDb SIN carrusel, en grid normal
 const resultsView = (resultados, query, localMovies = []) => {
   const chips = keywordsChipsBlock();
 
@@ -428,8 +429,8 @@ const resultsView = (resultados, query, localMovies = []) => {
               Keyword
             </label>
           </div>
-          <button class="btn btn-primary search">Buscar</button>
-          <button class="btn btn-ghost index">Volver</button>
+          <button class="btn btn-primary search">BUSCAR</button>
+          <button class="btn btn-ghost index">VOLVER</button>
         </div>
 
         ${chips}
@@ -447,9 +448,10 @@ const resultsView = (resultados, query, localMovies = []) => {
     const poster = r.poster_path
       ? `${TMDB_IMG_BASE}${r.poster_path}`
       : 'files/placeholder.png';
+
     const fecha = r.release_date || 'Fecha desconocida';
     const overview = r.overview
-      ? (r.overview.length > 220 ? r.overview.slice(0, 220) + '…' : r.overview)
+      ? (r.overview.length > 260 ? r.overview.slice(0, 260) + '…' : r.overview)
       : 'Sin sinopsis disponible.';
 
     const safeTitle = encodeURIComponent(r.title || '');
@@ -458,8 +460,8 @@ const resultsView = (resultados, query, localMovies = []) => {
     const rating5 = rating10 ? (rating10 / 2).toFixed(1) : '—';
 
     const addBtn = yaEnLista
-      ? `<button class="btn btn-ghost add-from-api" data-my-id="${i}" disabled>En tu lista</button>`
-      : `<button class="btn btn-primary add-from-api" data-my-id="${i}">Añadir</button>`;
+      ? `<button class="btn btn-ghost add-from-api" data-my-id="${i}" disabled>EN TU LISTA</button>`
+      : `<button class="btn btn-primary add-from-api" data-my-id="${i}">AÑADIR</button>`;
 
     return `
       <div class="movie">
@@ -468,19 +470,21 @@ const resultsView = (resultados, query, localMovies = []) => {
             <img src="${poster}" onerror="this.src='files/placeholder.png'">
           </div>
         </div>
+
         <div class="movie-info">
           <div class="title">${r.title || 'Sin título'}</div>
           <div class="extra">Estreno: ${fecha}</div>
           <div class="extra">Valoración TMDb: ${rating5}</div>
           <p class="overview">${overview}</p>
-          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">
-            ${addBtn}
-            <button class="btn btn-ghost keywords"
-                    data-movie-id="${r.id}"
-                    data-movie-title="${safeTitle}">
-              Keywords
-            </button>
-          </div>
+        </div>
+
+        <div class="actions">
+          ${addBtn}
+          <button class="btn btn-ghost keywords"
+                  data-movie-id="${r.id}"
+                  data-movie-title="${safeTitle}">
+            KEYWORDS
+          </button>
         </div>
       </div>
     `;
@@ -504,8 +508,8 @@ const resultsView = (resultados, query, localMovies = []) => {
             Keyword
           </label>
         </div>
-        <button class="btn btn-primary search">Buscar</button>
-        <button class="btn btn-ghost index">Volver</button>
+        <button class="btn btn-primary search">BUSCAR</button>
+        <button class="btn btn-ghost index">VOLVER</button>
       </div>
 
       ${chips}
@@ -516,6 +520,7 @@ const resultsView = (resultados, query, localMovies = []) => {
     </div>
   `;
 };
+
 
 /************  VISTAS PALABRAS CLAVE  ************/
 const keywordsView = (movieId, movieTitle, keywordList) => {
@@ -926,7 +931,8 @@ const addFromAPIContr = async (i, btn) => {
     btn.disabled = true;
   }
 
-  alert(`"${titulo}" se ha añadido a tus películas.`);
+  showToast(`🎬 "${titulo}" añadido a tu biblioteca`);
+
   mis_peliculas = actual;
 };
 
@@ -1168,3 +1174,28 @@ document.addEventListener('keyup', ev => {
 /************  Inicialización  ************/
 document.addEventListener('DOMContentLoaded', initContr);
 
+function showToast(message) {
+  // Crear contenedor si no existe
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  // Crear toast
+  const toast = document.createElement("div");
+  toast.className = "toast-message";
+  toast.innerHTML = message;
+
+  container.appendChild(toast);
+
+  // Animación de entrada
+  setTimeout(() => toast.classList.add("show"), 10);
+
+  // Eliminar tras 3s
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
