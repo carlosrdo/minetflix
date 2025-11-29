@@ -758,3 +758,77 @@ select:focus {
   font-size: 3rem;
   margin-bottom: 6px;
 }
+/* === Miniatura del tráiler (detalle) === */
+.detail-trailer {
+  margin-top: 16px;
+}
+
+.trailer-thumb {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  margin: 12px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.trailer-thumb__image {
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 */
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  border-radius: 12px;
+  transition: transform 0.25s ease;
+}
+
+.trailer-thumb:hover .trailer-thumb__image {
+  transform: scale(1.03);
+}
+
+.trailer-thumb__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-size: 1.1rem;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.trailer-thumb:hover .trailer-thumb__overlay {
+  opacity: 1;
+}
+
+.trailer-thumb__icon {
+  font-size: 3rem;
+  margin-bottom: 4px;
+}
+
+/* === Reparto principal === */
+.detail-cast {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px 0;
+}
+
+.actor-link {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  color: #fff;
+  text-transform: none;
+}
+
+.actor-link:hover {
+  background: rgba(255,255,255,0.14);
+}

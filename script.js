@@ -299,7 +299,12 @@ const showView = (pelicula) => {
   const favText = pelicula.favorite ? 'Sí' : 'No';
   const overviewText = pelicula.overview || 'No hay sinopsis disponible.';
 
-  // 🔥 NUEVO — Miniatura del tráiler
+  // 👥 Reparto principal (si viene en la película)
+  const castList = Array.isArray(pelicula.cast) && pelicula.cast.length
+    ? pelicula.cast
+    : null;
+
+  // 🔥 Miniatura del tráiler
   const trailerBlock = pelicula.trailerKey ? `
     <div class="detail-trailer">
       <div class="detail-label">Tráiler</div>
@@ -318,6 +323,20 @@ const showView = (pelicula) => {
 
         </div>
       </a>
+    </div>
+  ` : '';
+
+  // Bloque de reparto
+  const castBlock = castList ? `
+    <div class="detail-label">Reparto principal</div>
+    <div class="detail-cast">
+      ${castList.map(actor => `
+        <button class="actor-link"
+                data-actor-id="${actor.id}"
+                data-actor-name="${encodeURIComponent(actor.name)}">
+          ${actor.name}${actor.character ? ` (${actor.character})` : ''}
+        </button>
+      `).join('')}
     </div>
   ` : '';
 
@@ -348,6 +367,7 @@ const showView = (pelicula) => {
           <div class="detail-label">Sinopsis</div>
           <div class="detail-synopsis">${overviewText}</div>
 
+          ${castBlock}
           ${trailerBlock}
 
           <div style="margin-top:16px;">
@@ -359,6 +379,7 @@ const showView = (pelicula) => {
     </div>
   `;
 };
+
 
 // Vista nueva película manual
 const newView = () => `
@@ -692,11 +713,29 @@ const searchLocalContr = (query) => {
   renderIndex(filtradas, query);
 };
 
-const showContr = (i) => {
+const showContr = async (i) => {
   const peli = mis_peliculas[i];
   if (!peli) return indexContr();
+
+  // Si la peli viene de TMDb, completamos datos (director, sinopsis, reparto, tráiler…)
+  if (peli.tmdbId) {
+    const extra = await fetchMovieDetailsFromTMDb(peli.tmdbId);
+    if (extra && Object.keys(extra).length) {
+      peli.director    = extra.director    || peli.director;
+      peli.runtime     = extra.runtime     ?? peli.runtime;
+      peli.overview    = extra.overview    || peli.overview;
+      peli.releaseDate = extra.releaseDate || peli.releaseDate;
+      peli.rating      = extra.rating      ?? peli.rating;
+      peli.trailerKey  = extra.trailerKey  || peli.trailerKey;
+      peli.cast        = extra.cast        || peli.cast;
+
+      await updateAPI(mis_peliculas);
+    }
+  }
+
   document.getElementById('main').innerHTML = showView(peli);
 };
+
 
 const newContr = () => {
   document.getElementById('main').innerHTML = newView();
@@ -872,6 +911,20 @@ const fetchMovieDetailsFromTMDb = async (movieId) => {
       director = dir ? dir.name : null;
     }
 
+    // 👥 Reparto principal (máx. 5 actores)
+    let cast = [];
+    if (data.credits && Array.isArray(data.credits.cast)) {
+      cast = data.credits.cast
+        .filter(m => m.known_for_department === 'Acting')
+        .slice(0, 5)
+        .map(m => ({
+          id: m.id,
+          name: m.name,
+          character: m.character || ''
+        }));
+    }
+
+    // 🎬 Tráiler (YouTube)
     let trailerKey = null;
     if (data.videos && Array.isArray(data.videos.results)) {
       const trailer = data.videos.results.find(
@@ -885,7 +938,7 @@ const fetchMovieDetailsFromTMDb = async (movieId) => {
     const releaseDate = data.release_date || '';
     const rating = data.vote_average ? Number((data.vote_average / 2).toFixed(1)) : null;
 
-    return { director, runtime, overview, releaseDate, rating, trailerKey };
+    return { director, runtime, overview, releaseDate, rating, trailerKey, cast };
   } catch (err) {
     console.error('Error al obtener detalles desde TMDb:', err);
     return {};
@@ -1110,6 +1163,43 @@ const searchByKeywordContr = async (keyword) => {
   }
 };
 
+const searchByActorContr = async (actorId, actorName = '') => {
+  if (!actorId) return;
+
+  try {
+    const url = 'https://api.themoviedb.org/3/discover/movie'
+      + '?include_adult=false'
+      + '&language=es-ES'
+      + '&sort_by=popularity.desc'
+      + '&with_cast=' + encodeURIComponent(actorId);
+
+    const res = await fetch(url, TMDB_OPTIONS);
+    if (!res.ok) throw new Error('Error HTTP ' + res.status);
+
+    const data = await res.json();
+    tmdb_last_results = Array.isArray(data.results) ? data.results : [];
+
+    const localMovies = getMovies() || [];
+    const etiqueta = actorName ? `actor: ${actorName}` : '';
+
+    document.getElementById('main').innerHTML =
+      resultsView(tmdb_last_results, etiqueta, localMovies);
+  } catch (err) {
+    console.error(err);
+    document.getElementById('main').innerHTML = `
+      <div class="container">
+        <h2>Películas por actor</h2>
+        <div class="error">
+          No se han podido obtener películas para este actor en este momento.
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost index">Volver</button>
+        </div>
+      </div>
+    `;
+  }
+};
+
 /************  ROUTER (delegación de eventos)  ************/
 const matchEvent = (ev, sel) => ev.target.matches(sel);
 const myId = (ev) => Number(ev.target.dataset.myId);
@@ -1163,11 +1253,21 @@ document.addEventListener('click', ev => {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     deleteKeywordContr(kw);
   }
+
+  // 🔥 Nuevo: clic en nombre de actor → buscar películas de ese actor
+  else if (matchEvent(ev, '.actor-link')) {
+    const actorId   = ev.target.dataset.actorId;
+    const actorName = ev.target.dataset.actorName || '';
+    searchByActorContr(actorId, actorName);
+  }
+
+  // Clic en cualquier texto/chip de keyword (vista de peli, lista personal o chips)
   else if (matchEvent(ev, '.keyword-link')) {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     searchByKeywordContr(kw);
   }
 });
+
 
 document.addEventListener('keyup', ev => {
   if (ev.key === 'Enter' && ev.target.id === 'search_query') {
