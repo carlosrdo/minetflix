@@ -299,13 +299,25 @@ const showView = (pelicula) => {
   const favText = pelicula.favorite ? 'Sí' : 'No';
   const overviewText = pelicula.overview || 'No hay sinopsis disponible.';
 
+  // 🔥 NUEVO — Miniatura del tráiler
   const trailerBlock = pelicula.trailerKey ? `
     <div class="detail-trailer">
       <div class="detail-label">Tráiler</div>
-      <iframe src="https://www.youtube.com/embed/${pelicula.trailerKey}"
-              allowfullscreen
-              loading="lazy">
-      </iframe>
+
+      <a class="trailer-thumb"
+         href="https://www.youtube.com/watch?v=${pelicula.trailerKey}"
+         target="_blank" rel="noopener">
+
+        <div class="trailer-thumb__image"
+             style="background-image:url('https://img.youtube.com/vi/${pelicula.trailerKey}/hqdefault.jpg')">
+
+          <div class="trailer-thumb__overlay">
+            <span class="trailer-thumb__icon">▶</span>
+            <span class="trailer-thumb__text">Ver tráiler en YouTube</span>
+          </div>
+
+        </div>
+      </a>
     </div>
   ` : '';
 
@@ -313,10 +325,12 @@ const showView = (pelicula) => {
     <div class="container">
       <h2>Detalles de la película</h2>
       <div class="detail-layout">
+
         <div class="detail-poster">
           <img src="${pelicula.miniatura || 'files/placeholder.png'}"
                onerror="this.src='files/placeholder.png'">
         </div>
+
         <div class="detail-info">
           <h2>${pelicula.titulo || "Sin título"}</h2>
 
@@ -339,6 +353,7 @@ const showView = (pelicula) => {
           <div style="margin-top:16px;">
             <button class="btn btn-ghost index">Volver</button>
           </div>
+
         </div>
       </div>
     </div>
