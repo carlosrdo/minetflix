@@ -54,6 +54,14 @@ const TMDB_OPTIONS = {
 // Últimos resultados de búsqueda TMDb
 let tmdb_last_results = [];
 let tmdb_last_query = "";
+let tmdb_last_page = 1;
+let tmdb_last_total_pages = 1;
+let tmdb_last_search_type = 'title';   // 'title' | 'keyword' | 'actor'
+let tmdb_last_keyword_id = null;       // para la paginación por keyword
+let tmdb_last_actor_id = null;         // para la paginación por actor
+let tmdb_last_actor_name = '';
+
+
 
 /************  UTILIDADES TEXTO / REGEX  ************/
 const cleanKeyword = (keyword) => {
@@ -443,7 +451,7 @@ const searchView = () => {
 
 /************  VISTA RESULTADOS TMDb  ************/
 // Vista de resultados TMDb SIN carrusel, en grid normal
-const resultsView = (resultados, query, localMovies = []) => {
+const resultsView = (resultados, query, localMovies = [], page = 1, totalPages = 1) => {
   const chips = keywordsChipsBlock();
 
   if (!resultados || resultados.length === 0) {
@@ -478,13 +486,10 @@ const resultsView = (resultados, query, localMovies = []) => {
     `;
   }
 
-  const isKeywordMode = typeof query === 'string' && query.startsWith('keyword: ');
-
   const cards = resultados.map((r, i) => {
     const poster = r.poster_path
       ? `${TMDB_IMG_BASE}${r.poster_path}`
       : 'files/placeholder.png';
-
     const fecha = r.release_date || 'Fecha desconocida';
     const overview = r.overview
       ? (r.overview.length > 260 ? r.overview.slice(0, 260) + '…' : r.overview)
@@ -503,28 +508,38 @@ const resultsView = (resultados, query, localMovies = []) => {
       <div class="movie">
         <div class="movie-img">
           <div class="movie-img-inner">
-            <img src="${poster}" onerror="this.src='files/placeholder.png'">
+            <!-- 👇 IMPORTANTE: clase show-api + data-api-index -->
+            <img class="show-api"
+                 data-api-index="${i}"
+                 src="${poster}"
+                 onerror="this.src='files/placeholder.png'">
           </div>
         </div>
-
         <div class="movie-info">
           <div class="title">${r.title || 'Sin título'}</div>
           <div class="extra">Estreno: ${fecha}</div>
           <div class="extra">Valoración TMDb: ${rating5}</div>
           <p class="overview">${overview}</p>
-        </div>
-
-        <div class="actions">
-          ${addBtn}
-          <button class="btn btn-ghost keywords"
-                  data-movie-id="${r.id}"
-                  data-movie-title="${safeTitle}">
-            KEYWORDS
-          </button>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">
+            ${addBtn}
+            <button class="btn btn-ghost keywords"
+                    data-movie-id="${r.id}"
+                    data-movie-title="${safeTitle}">
+              KEYWORDS
+            </button>
+          </div>
         </div>
       </div>
     `;
   }).join('');
+
+  const pager = totalPages > 1 ? `
+    <div class="tmdb-pager">
+      <button class="btn btn-ghost tmdb-prev" ${page <= 1 ? 'disabled' : ''}>Anterior</button>
+      <span class="tmdb-page-indicator">Página ${page} de ${totalPages}</span>
+      <button class="btn btn-primary tmdb-next" ${page >= totalPages ? 'disabled' : ''}>Siguiente</button>
+    </div>
+  ` : '';
 
   return `
     <div class="container">
@@ -536,11 +551,11 @@ const resultsView = (resultados, query, localMovies = []) => {
                value="${query || ''}">
         <div class="search-mode">
           <label>
-            <input type="radio" name="search_mode" value="title" ${!isKeywordMode ? 'checked' : ''}>
+            <input type="radio" name="search_mode" value="title" checked>
             Título
           </label>
           <label>
-            <input type="radio" name="search_mode" value="keyword" ${isKeywordMode ? 'checked' : ''}>
+            <input type="radio" name="search_mode" value="keyword">
             Keyword
           </label>
         </div>
@@ -549,13 +564,17 @@ const resultsView = (resultados, query, localMovies = []) => {
       </div>
 
       ${chips}
+      ${pager}
 
       <div id="search_results" class="movies-grid">
         ${cards}
       </div>
+
+      ${pager}
     </div>
   `;
 };
+
 
 
 /************  VISTAS PALABRAS CLAVE  ************/
@@ -736,6 +755,36 @@ const showContr = async (i) => {
   document.getElementById('main').innerHTML = showView(peli);
 };
 
+// Mostrar detalle de una película que viene de tmdb_last_results (sin necesidad de añadirla)
+const showApiMovieContr = async (idx) => {
+  const peliAPI = tmdb_last_results[idx];
+  if (!peliAPI) return;
+
+  // Objeto base con lo que ya viene en la búsqueda
+  const peli = {
+    titulo: peliAPI.title || peliAPI.original_title || 'Sin título',
+    miniatura: peliAPI.poster_path
+      ? `${TMDB_IMG_BASE}${peliAPI.poster_path}`
+      : 'files/placeholder.png',
+    favorite: false,
+    director: null,
+    runtime: null,
+    overview: peliAPI.overview || '',
+    releaseDate: peliAPI.release_date || '',
+    rating: peliAPI.vote_average ? Number((peliAPI.vote_average / 2).toFixed(1)) : null,
+    tmdbId: peliAPI.id || null,
+    cast: []
+  };
+
+  // Rellenamos con datos extra (director, reparto, tráiler…)
+  if (peliAPI.id) {
+    const extra = await fetchMovieDetailsFromTMDb(peliAPI.id);
+    Object.assign(peli, extra);   // director, runtime, overview, releaseDate, rating, trailerKey, cast...
+  }
+
+  document.getElementById('main').innerHTML = showView(peli);
+};
+
 
 const newContr = () => {
   document.getElementById('main').innerHTML = newView();
@@ -818,6 +867,7 @@ const toggleFavoriteContr = async (i) => {
   indexContr();
 };
 
+
 /************  CONTROLADORES TMDb  ************/
 
 const searchViewContr = () => {
@@ -827,21 +877,31 @@ const searchViewContr = () => {
   document.getElementById('search_query')?.focus();
 };
 
-// Búsqueda por título
-const searchByTitleContr = async (query) => {
-  const q = (query || '').trim();
+
+// Búsqueda por título con soporte de página
+const searchByTitleContr = async (query, page = 1) => {
+  // Si viene query vacía desde paginación, reutilizamos la última
+  const rawQuery = (typeof query === 'string' && query.trim())
+    ? query
+    : (tmdb_last_query || '');
+
+  const q = rawQuery.trim();
+
   if (!q) {
     alert('Escribe un título para buscar.');
     return;
   }
 
+  // Guardamos estado de la última búsqueda
   tmdb_last_query = q;
+  tmdb_last_mode  = 'title';
+  tmdb_last_page  = page;
 
   try {
     const url = 'https://api.themoviedb.org/3/search/movie'
       + '?include_adult=false'
       + '&language=es-ES'
-      + '&page=1'
+      + '&page=' + String(page)
       + '&query=' + encodeURIComponent(q);
 
     const res = await fetch(url, TMDB_OPTIONS);
@@ -849,16 +909,34 @@ const searchByTitleContr = async (query) => {
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       console.error('TMDb error search/movie:', res.status, text);
-      alert('TMDb ha devuelto un error (' + res.status + '). Revisa tu clave o vuelve a intentarlo en un rato.');
+      alert(
+        'TMDb ha devuelto un error (' +
+        res.status +
+        '). Revisa tu clave o vuelve a intentarlo en un rato.'
+      );
       return;
     }
 
     const data = await res.json();
-    tmdb_last_results = Array.isArray(data.results) ? data.results : [];
+
+    tmdb_last_results  = Array.isArray(data.results) ? data.results : [];
+    tmdb_total_pages   = Number.isFinite(data.total_pages)
+      ? data.total_pages
+      : 1;
 
     const localMovies = getMovies() || [];
+
+    // 🔥 Pasamos página y totalPages a la vista para mostrar los botones
     document.getElementById('main').innerHTML =
-      resultsView(tmdb_last_results, tmdb_last_query, localMovies);
+      resultsView(
+        tmdb_last_results,
+        tmdb_last_query,
+        localMovies,
+        {
+          page: tmdb_last_page,
+          totalPages: tmdb_total_pages
+        }
+      );
 
     document.getElementById('search_query')?.focus();
   } catch (err) {
@@ -890,6 +968,7 @@ const searchByTitleContr = async (query) => {
     `;
   }
 };
+
 
 /* Obtener detalle completo de una película en TMDb:
    director, runtime, overview, release_date, rating, trailer (YouTube)
@@ -1004,6 +1083,22 @@ const addFromAPIContr = async (i, btn) => {
   mis_peliculas = actual;
 };
 
+// Cambiar de página en los resultados TMDb (Anterior / Siguiente)
+const tmdbChangePageContr = async (delta) => {
+  const newPage = tmdb_last_page + delta;
+  if (newPage < 1 || newPage > tmdb_last_total_pages) return;
+
+  if (tmdb_last_search_type === 'title') {
+    await searchByTitleContr(tmdb_last_query, newPage, false);
+  } else if (tmdb_last_search_type === 'keyword') {
+    await searchByKeywordContr(tmdb_last_query, newPage, false);
+  } else if (tmdb_last_search_type === 'actor') {
+    // solo si estás usando búsqueda por actor
+    await searchByActorContr(tmdb_last_actor_id, tmdb_last_actor_name, newPage, false);
+  }
+};
+
+
 /************  PALABRAS CLAVE TMDb  ************/
 
 const processKeywords = (keywords) => {
@@ -1098,55 +1193,67 @@ const deleteKeywordContr = (keyword) => {
 };
 
 /************  Buscar películas por keyword  ************/
-const searchByKeywordContr = async (keyword) => {
-  const kw = cleanKeyword(keyword);
-  if (!kw) {
+const searchByKeywordContr = async (keyword, page = 1, resetState = true) => {
+  const kwClean = cleanKeyword(keyword);
+  if (!kwClean && resetState) {
     alert('Palabra clave no válida.');
     return;
   }
 
-  tmdb_last_query = `keyword: ${kw}`;
+  let keywordId = tmdb_last_keyword_id;
+  let label = kwClean;
 
   try {
-    // 1) Buscar ID de la keyword
-    const urlKw = 'https://api.themoviedb.org/3/search/keyword?query='
-      + encodeURIComponent(kw)
-      + '&page=1';
-    const resKw = await fetch(urlKw, TMDB_OPTIONS);
-    if (!resKw.ok) throw new Error('Error HTTP ' + resKw.status);
-    const dataKw = await resKw.json();
+    if (resetState) {
+      // 1) Buscar ID de la keyword
+      const urlKw = 'https://api.themoviedb.org/3/search/keyword?query='
+        + encodeURIComponent(kwClean)
+        + '&page=1';
+      const resKw = await fetch(urlKw, TMDB_OPTIONS);
+      if (!resKw.ok) throw new Error('Error HTTP ' + resKw.status);
+      const dataKw = await resKw.json();
 
-    if (!dataKw.results || dataKw.results.length === 0) {
-      document.getElementById('main').innerHTML = `
-        <div class="container">
-          <h2>Resultados por palabra clave</h2>
-          <div class="keywords-empty">
-            No se han encontrado keywords en TMDb para "${kw}".
+      if (!dataKw.results || dataKw.results.length === 0) {
+        document.getElementById('main').innerHTML = `
+          <div class="container">
+            <h2>Resultados por palabra clave</h2>
+            <div class="keywords-empty">
+              No se han encontrado keywords en TMDb para "${kwClean}".
+            </div>
+            <div class="actions">
+              <button class="btn btn-ghost index">Volver</button>
+            </div>
           </div>
-          <div style="margin-top:12px;">
-            <button class="btn btn-primary index">Volver al inicio</button>
-          </div>
-        </div>
-      `;
-      return;
+        `;
+        return;
+      }
+
+      keywordId = dataKw.results[0].id;
+      tmdb_last_keyword_id = keywordId;
+      tmdb_last_query = kwClean;
+      tmdb_last_search_type = 'keyword';
+      label = kwClean;
     }
 
-    const keywordId = dataKw.results[0].id;
+    if (!keywordId) return;
 
-    // 2) Buscar películas con esa keyword
+    // 2) Buscar películas con esa keyword (paginadas)
     const urlMovies = 'https://api.themoviedb.org/3/discover/movie'
-      + '?include_adult=false&language=es-ES&page=1&with_keywords='
-      + keywordId;
+      + '?include_adult=false&language=es-ES'
+      + '&page=' + page
+      + '&with_keywords=' + keywordId;
 
     const resMovies = await fetch(urlMovies, TMDB_OPTIONS);
     if (!resMovies.ok) throw new Error('Error HTTP ' + resMovies.status);
     const dataMovies = await resMovies.json();
 
     tmdb_last_results = Array.isArray(dataMovies.results) ? dataMovies.results : [];
+    tmdb_last_page = dataMovies.page || page;
+    tmdb_last_total_pages = dataMovies.total_pages || 1;
 
     const localMovies = getMovies() || [];
     document.getElementById('main').innerHTML =
-      resultsView(tmdb_last_results, `keyword: ${kw}`, localMovies);
+      resultsView(tmdb_last_results, label, localMovies, tmdb_last_page, tmdb_last_total_pages);
   } catch (err) {
     console.error(err);
     document.getElementById('main').innerHTML = `
@@ -1155,35 +1262,48 @@ const searchByKeywordContr = async (keyword) => {
         <div class="error">
           No se han podido obtener películas para la keyword "${keyword}".
         </div>
-        <div style="margin-top:12px;">
-          <button class="btn btn-primary index">Volver al inicio</button>
+        <div class="actions">
+          <button class="btn btn-ghost index">Volver</button>
         </div>
       </div>
     `;
   }
 };
 
+
 const searchByActorContr = async (actorId, actorName = '') => {
   if (!actorId) return;
+
+  // 🔹 Guardamos el contexto de la búsqueda para la paginación
+  tmdb_last_search_type = 'actor';
+  tmdb_last_actor_id = actorId;
+  tmdb_last_actor_name = actorName || '';
+  tmdb_last_page = 1;                      // empezamos siempre en la página 1
+  tmdb_last_query = actorName
+    ? `actor: ${actorName}`
+    : `actor ID: ${actorId}`;
 
   try {
     const url = 'https://api.themoviedb.org/3/discover/movie'
       + '?include_adult=false'
       + '&language=es-ES'
       + '&sort_by=popularity.desc'
+      + '&page=' + tmdb_last_page
       + '&with_cast=' + encodeURIComponent(actorId);
 
     const res = await fetch(url, TMDB_OPTIONS);
     if (!res.ok) throw new Error('Error HTTP ' + res.status);
 
     const data = await res.json();
-    tmdb_last_results = Array.isArray(data.results) ? data.results : [];
+
+    tmdb_last_results      = Array.isArray(data.results) ? data.results : [];
+    tmdb_last_total_pages  = data.total_pages || 1;
 
     const localMovies = getMovies() || [];
-    const etiqueta = actorName ? `actor: ${actorName}` : '';
 
     document.getElementById('main').innerHTML =
-      resultsView(tmdb_last_results, etiqueta, localMovies);
+      resultsView(tmdb_last_results, tmdb_last_query, localMovies);
+
   } catch (err) {
     console.error(err);
     document.getElementById('main').innerHTML = `
@@ -1200,6 +1320,7 @@ const searchByActorContr = async (actorId, actorName = '') => {
   }
 };
 
+
 /************  ROUTER (delegación de eventos)  ************/
 const matchEvent = (ev, sel) => ev.target.matches(sel);
 const myId = (ev) => Number(ev.target.dataset.myId);
@@ -1207,24 +1328,31 @@ const myId = (ev) => Number(ev.target.dataset.myId);
 document.addEventListener('click', ev => {
   if      (matchEvent(ev, '.index'))             indexContr();
   else if (matchEvent(ev, '.show'))              showContr(myId(ev));
+  // 👇 abrir detalle de una peli que viene de TMDb (búsqueda)
+  else if (matchEvent(ev, '.show-api')) {
+    const idx = Number(ev.target.dataset.apiIndex);
+    showApiMovieContr(idx);
+  }
   else if (matchEvent(ev, '.new'))               newContr();
   else if (matchEvent(ev, '.create'))            createContr();
   else if (matchEvent(ev, '.edit'))              editContr(myId(ev));
   else if (matchEvent(ev, '.update'))            updateContr(myId(ev));
   else if (matchEvent(ev, '.delete'))            deleteContr(myId(ev));
   else if (matchEvent(ev, '.reset'))             resetContr();
-  else if (matchEvent(ev, '.favorite-toggle'))   toggleFavoriteContr(myId(ev))
+  else if (matchEvent(ev, '.favorite-toggle'))   toggleFavoriteContr(myId(ev));
 
   // Búsqueda TMDb por título / keyword
   else if (matchEvent(ev, '.search-view'))  searchViewContr();
   else if (matchEvent(ev, '.search')) {
-    const query = document.getElementById('search_query')?.value || '';
+    const query  = document.getElementById('search_query')?.value || '';
     const modeEl = document.querySelector('input[name="search_mode"]:checked');
-    const mode = modeEl ? modeEl.value : 'title';
+    const mode   = modeEl ? modeEl.value : 'title';
 
     if (mode === 'keyword') {
+      // página 1 y reseteando estado
       searchByKeywordContr(query);
     } else {
+      // página 1 y reseteando estado
       searchByTitleContr(query);
     }
   }
@@ -1238,7 +1366,7 @@ document.addEventListener('click', ev => {
 
   // Palabras clave TMDb
   else if (matchEvent(ev, '.keywords')) {
-    const movieId = Number(ev.target.dataset.movieId);
+    const movieId      = Number(ev.target.dataset.movieId);
     const encodedTitle = ev.target.dataset.movieTitle || '';
     keywordsContr(movieId, encodedTitle);
   }
@@ -1254,19 +1382,28 @@ document.addEventListener('click', ev => {
     deleteKeywordContr(kw);
   }
 
-  // 🔥 Nuevo: clic en nombre de actor → buscar películas de ese actor
+  // 🔥 Clic en nombre de actor → buscar películas de ese actor
   else if (matchEvent(ev, '.actor-link')) {
     const actorId   = ev.target.dataset.actorId;
     const actorName = ev.target.dataset.actorName || '';
     searchByActorContr(actorId, actorName);
   }
 
-  // Clic en cualquier texto/chip de keyword (vista de peli, lista personal o chips)
+  // Clic en cualquier chip/enlace de keyword
   else if (matchEvent(ev, '.keyword-link')) {
     const kw = decodeURIComponent(ev.target.dataset.keyword || '');
     searchByKeywordContr(kw);
   }
+
+  // 🔥 NUEVO: paginación de resultados TMDb
+  else if (matchEvent(ev, '.tmdb-next')) {
+    tmdbChangePageContr(1);     // pasar a la página siguiente
+  }
+  else if (matchEvent(ev, '.tmdb-prev')) {
+    tmdbChangePageContr(-1);    // volver a la página anterior
+  }
 });
+
 
 
 document.addEventListener('keyup', ev => {

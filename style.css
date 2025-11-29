@@ -832,3 +832,22 @@ select:focus {
 .actor-link:hover {
   background: rgba(255,255,255,0.14);
 }
+.tmdb-pager {
+  margin: 10px 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.tmdb-page-indicator {
+  min-width: 120px;
+  text-align: center;
+}
+
+.tmdb-pager .btn[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
